@@ -346,13 +346,22 @@ function gameLoop() {
         return;
     }
     
+    // ✅ FIXED BIRD ROTATION - NO MORE UPSIDE DOWN!
     ctx.save();
     ctx.translate(gameState.bird.x + gameState.bird.width/2, gameState.bird.y + gameState.bird.height/2);
-    ctx.rotate(gameState.bird.rotation * Math.PI / 180);
+    
+    // Apply rotation but limit to realistic bird tilt
+    const tiltRotation = Math.max(-20, Math.min(20, gameState.bird.rotation));
+    ctx.rotate(tiltRotation * Math.PI / 180);
+    
     if (birdImages[selectedSkin.name]) {
-        ctx.drawImage(birdImages[selectedSkin.name], -gameState.bird.width/2, -gameState.bird.height/2, gameState.bird.width, gameState.bird.height);
+        ctx.drawImage(birdImages[selectedSkin.name], 
+                     -gameState.bird.width/2, -gameState.bird.height/2, 
+                     gameState.bird.width, gameState.bird.height);
     } else {
-        ctx.font = "bold 50px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.font = "bold 50px Arial"; 
+        ctx.textAlign = "center"; 
+        ctx.textBaseline = "middle";
         ctx.fillStyle = "orange";
         ctx.fillText("🦜", 0, 0);
     }
@@ -369,7 +378,7 @@ function gameLoop() {
 function jump() { 
     if (gameState.gameStarted && !gameState.gameOver && !gameState.paused) { 
         gameState.bird.velocity = -7.5;
-        gameState.bird.rotation = -25;
+        gameState.bird.rotation = -20;  // Jump up tilt
     } 
 }
 
@@ -415,7 +424,6 @@ function renderSkins() {
         
         const nameDiv = document.createElement("div"); nameDiv.className = "name"; nameDiv.textContent = s.name; box.appendChild(nameDiv);
         const priceDiv = document.createElement("div"); priceDiv.className = "price"; priceDiv.textContent = `${s.unlockScore} pts`; box.appendChild(priceDiv);
-        
         const overlay = document.createElement("div"); overlay.className = "lockOverlay";
         if (!skinData[s.name]?.unlocked) overlay.textContent = "🔒"; else overlay.style.display = "none";
         box.appendChild(overlay);
