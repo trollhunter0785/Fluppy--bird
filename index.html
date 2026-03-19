@@ -79,9 +79,9 @@ canvas{ display:block; }
     <button class="backBtn">&#8592;</button>
     <h2>🎮 Select Difficulty</h2>
     <div id="difficultyOptions" style="text-align:center;">
-        <label style="display:block; margin:15px; font-size:20px;"><input type="radio" name="difficulty" value="Very Easy">  Very Easy</label>
-        <label style="display:block; margin:15px; font-size:20px;"><input type="radio" name="difficulty" value="Normal">  Normal</label>
-        <label style="display:block; margin:15px; font-size:20px;"><input type="radio" name="difficulty" value="Hard">  Hard</label>
+        <label style="display:block; margin:15px; font-size:20px;"><input type="radio" name="difficulty" value="Very Easy"> 🌈 Very Easy</label>
+        <label style="display:block; margin:15px; font-size:20px;"><input type="radio" name="difficulty" value="Normal"> ⚡ Normal</label>
+        <label style="display:block; margin:15px; font-size:20px;"><input type="radio" name="difficulty" value="Hard"> 🔥 Hard</label>
     </div>
 </div>
 
@@ -104,7 +104,7 @@ canvas{ display:block; }
 <script>
 const birdImages = {};
 const skins = [
-    {name:"bird", file:"Picsart_26-02-26_17-30-25-252.png, unlockScore:0, pipeColor:"#00c853", groundColor:"#8B4513"},
+    {name:"Bird", file:"Picsart_26-02-26_17-30-25-252.png", unlockScore:0, pipeColor:"#00c853", groundColor:"#8B4513"},
     {name:"Mango Bird", file:"Picsart_26-02-27_01-28-33-302.png", unlockScore:10, pipeColor:"#FFA500", groundColor:"#FFCC80"},
     {name:"Happy Perrot", file:"Picsart_26-02-27_10-16-34-761.png", unlockScore:20, pipeColor:"#ff4081", groundColor:"#f48fb1"},
     {name:"Angry Bird", file:"Picsart_26-02-27_10-15-45-688.png", unlockScore:30, pipeColor:"#ff1744", groundColor:"#d50000"},
@@ -358,7 +358,6 @@ function gameLoop() {
     }
     ctx.restore();
     
-    // ✅ SMALLER FONT SIZE FOR SCORE DISPLAY
     ctx.fillStyle = "black"; 
     ctx.font = "bold 32px Arial"; 
     ctx.textAlign = "left";
@@ -419,65 +418,65 @@ function renderSkins() {
         
         const overlay = document.createElement("div"); overlay.className = "lockOverlay";
         if (!skinData[s.name]?.unlocked) overlay.textContent = "🔒"; else overlay.style.display = "none";
-        box.appendChilld(overlay);
-        
-        box.onclick = () => {
-            if (skinData[s.name]?.unlocked) {
-                selectedSkin = s;
-                selectedSkinName = s.name;
-                renderSkins();
-                elements.confirmSkinBtn.className = "confirmBtn unlocked";
-            }
-        };
-        elements.skinRow.appendChild(box);
-    });
-    
-    elements.confirmSkinBtn.className = skinData[selectedSkin.name]?.unlocked ? "confirmBtn unlocked" : "confirmBtn locked";
+        box.appendChild(overlay);
+        
+        box.onclick = () => {
+            if (skinData[s.name]?.unlocked) {
+                selectedSkin = s;
+                selectedSkinName = s.name;
+                renderSkins();
+                elements.confirmSkinBtn.className = "confirmBtn unlocked";
+            }
+        };
+        elements.skinRow.appendChild(box);
+    });
+    
+    elements.confirmSkinBtn.className = skinData[selectedSkin.name]?.unlocked ? "confirmBtn unlocked" : "confirmBtn locked";
 }
 
 elements.confirmSkinBtn.onclick = () => {
-    if (elements.confirmSkinBtn.classList.contains("unlocked")) {
-        localStorage.setItem("selectedSkin", selectedSkin.name);
-        elements.storeScreen.style.display = "none";
-        elements.titleScreen.style.display = "flex";
-    }
+    if (elements.confirmSkinBtn.classList.contains("unlocked")) {
+        localStorage.setItem("selectedSkin", selectedSkin.name);
+        elements.storeScreen.style.display = "none";
+        elements.titleScreen.style.display = "flex";
+    }
 };
 
 elements.pauseBtn.onclick = () => {
-    gameState.paused = !gameState.paused;
-    if (gameState.paused) {
-        elements.pauseBtn.style.display = "none";
-        elements.pauseResumeBtn.style.display = "block";
-        elements.pauseHomeBtn.style.display = "block";
-    } else {
-        elements.pauseResumeBtn.style.display = "none";
-        elements.pauseHomeBtn.style.display = "none";
-        elements.pauseBtn.style.display = "block";
-    }
+    gameState.paused = !gameState.paused;
+    if (gameState.paused) {
+        elements.pauseBtn.style.display = "none";
+        elements.pauseResumeBtn.style.display = "block";
+        elements.pauseHomeBtn.style.display = "block";
+    } else {
+        elements.pauseResumeBtn.style.display = "none";
+        elements.pauseHomeBtn.style.display = "none";
+        elements.pauseBtn.style.display = "block";
+    }
 };
 
 elements.pauseResumeBtn.onclick = () => {
-    gameState.paused = false;
-    elements.pauseResumeBtn.style.display = "none";
-    elements.pauseHomeBtn.style.display = "none";
-    elements.pauseBtn.style.display = "block";
+    gameState.paused = false;
+    elements.pauseResumeBtn.style.display = "none";
+    elements.pauseHomeBtn.style.display = "none";
+    elements.pauseBtn.style.display = "block";
 };
 
 elements.pauseHomeBtn.onclick = () => {
-    if (gameState.animationId) cancelAnimationFrame(gameState.animationId);
-    elements.titleScreen.style.display = "flex";
-    [elements.pauseBtn, elements.pauseResumeBtn, elements.pauseHomeBtn, elements.restartBtn, elements.homeBtn].forEach(el => el.style.display = "none");
-    gameState.gameOver = true;
-    gameState.paused = false;
+    if (gameState.animationId) cancelAnimationFrame(gameState.animationId);
+    elements.titleScreen.style.display = "flex";
+    [elements.pauseBtn, elements.pauseResumeBtn, elements.pauseHomeBtn, elements.restartBtn, elements.homeBtn].forEach(el => el.style.display = "none");
+    gameState.gameOver = true;
+    gameState.paused = false;
 };
 
 elements.restartBtn.onclick = startGame;
 elements.homeBtn.onclick = () => {
-    if (gameState.animationId) cancelAnimationFrame(gameState.animationId);
-    elements.titleScreen.style.display = "flex";
-    [elements.restartBtn, elements.homeBtn, elements.pauseBtn].forEach(el => el.style.display = "none");
-    gameState.gameOver = true;
-    gameState.paused = false;
+    if (gameState.animationId) cancelAnimationFrame(gameState.animationId);
+    elements.titleScreen.style.display = "flex";
+    [elements.restartBtn, elements.homeBtn, elements.pauseBtn].forEach(el => el.style.display = "none");
+    gameState.gameOver = true;
+    gameState.paused = false;
 };
 
 init();
