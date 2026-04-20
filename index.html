@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Fluppy Bird</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+body{overflow:hidden;font-family:'Fredoka One','Comic Sans MS',cursive;background:#000;}
+canvas{display:block;position:absolute;top:0;left:0;z-index:0;}
+
+/* ===== AUTH ===== */
+#authScreen{position:absolute;inset:0;z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#1c2340 0%,#080b14 100%);padding:20px;}
+#authTitle{font-family:'Fredoka One',cursive;font-size:clamp(28px,7vw,48px);color:#FFD700;letter-spacing:4px;text-shadow:3px 3px 0 #000,5px 5px 0 #7a5800;margin-bottom:20px;}
+#authTabs{display:flex;margin-bottom:20px;border-radius:14px;overflow:hidden;border:2px solid rgba(255,255,255,0.1);}
+.authTab{flex:1;padding:12px 28px;font-size:18px;border:none;cursor:pointer;font-family:'Fredoka One',cursive;transition:0.2s;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.5);}
+.authTab.active{background:linear-gradient(160deg,#4CAF50,#2e7d32);color:#fff;}
+#pfpSection{margin-bottom:16px;text-align:center;}
+#pfpSection p{color:rgba(255,255,255,0.6);font-size:14px;margin-bottom:10px;}
+#pfpRow{display:flex;gap:12px;justify-content:center;}
+.pfpOption{font-size:36px;cursor:pointer;padding:8px;border-radius:50%;border:3px solid transparent;transition:0.2s;background:rgba(255,255,255,0.05);}
+.pfpOption.selected{border-color:#FFD700;background:rgba(255,215,0,0.15);transform:scale(1.2);}
+.authInput{width:min(90vw,340px);padding:14px 18px;margin:7px 0;font-size:18px;font-family:'Fredoka One',cursive;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;outline:none;transition:border-color 0.2s;}
+.authInput:focus{border-color:rgba(76,175,80,0.7);}
+.authInput::placeholder{color:rgba(255,255,255,0.3);}
+#authBtn{width:min(90vw,340px);padding:15px;margin-top:12px;font-size:20px;background:linear-gradient(160deg,#4CAF50,#2e7d32);color:#fff;border:none;border-radius:14px;cursor:pointer;font-family:'Fredoka One',cursive;box-shadow:0 6px 0 #1b5e20;transition:0.15s;}
+#authBtn:active{transform:translateY(4px);box-shadow:0 2px 0 #1b5e20;}
+#authError{color:#ff6b6b;font-size:14px;margin-top:10px;text-align:center;min-height:20px;font-family:'Fredoka One',cursive;}
+#authLoading{color:rgba(255,255,255,0.6);font-size:15px;margin-top:10px;display:none;font-family:'Fredoka One',cursive;}
+
+/* ===== LOADING ===== */
+#loadingScreen{position:absolute;inset:0;z-index:2000;display:none;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 40%,#1c2340 0%,#080b14 100%);}
+#loadTitle{font-family:'Fredoka One',cursive;font-size:clamp(30px,7vw,52px);color:#FFD700;letter-spacing:4px;text-shadow:3px 3px 0 #000,6px 6px 0 #7a5800;margin-bottom:40px;}
+#loadIconRow{display:flex;gap:16px;margin-bottom:36px;font-size:clamp(28px,6vw,40px);}
+.loadIcon{opacity:0.3;transition:opacity 0.4s,transform 0.4s;}
+.loadIcon.done{opacity:1;transform:scale(1.15);}
+#loadBarWrap{width:min(85vw,340px);background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.12);border-radius:30px;overflow:hidden;height:22px;margin-bottom:14px;}
+#loadBar{height:100%;width:0%;background:linear-gradient(90deg,#4CAF50,#8BC34A,#FFD700);border-radius:30px;transition:width 0.3s ease;}
+#loadPercent{font-family:'Fredoka One',cursive;font-size:clamp(18px,4vw,22px);color:#fff;letter-spacing:2px;margin-bottom:10px;}
+#loadStatus{font-family:'Fredoka One',cursive;font-size:clamp(12px,3vw,14px);color:rgba(255,255,255,0.45);min-height:20px;}
+
+/* ===== SPLASH ===== */
+#splashScreen{position:absolute;inset:0;z-index:1000;display:none;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 40%,#1c2340 0%,#080b14 100%);transition:opacity 0.5s;}
+#splashImgWrap{width:min(92vw,480px);height:calc(min(92vw,480px) / 1.364);border-radius:18px;overflow:hidden;box-shadow:0 0 0 3px rgba(255,215,0,0.35),0 12px 50px rgba(0,0,0,0.85);margin-bottom:28px;background:#111;display:flex;align-items:center;justify-content:center;}
+#splashImgWrap img{width:100%;height:100%;object-fit:contain;display:block;}
+#okBtn{padding:16px 55px;font-size:clamp(18px,4.5vw,23px);background:linear-gradient(160deg,#4CAF50,#2e7d32);color:#fff;border:none;border-radius:14px;cursor:pointer;font-family:'Fredoka One',cursive;letter-spacing:1.5px;box-shadow:0 6px 0 #1b5e20;transition:0.15s;}
+#okBtn:active{transform:translateY(4px);box-shadow:0 2px 0 #1b5e20;}
+
+/* ===== TITLE ===== */
+#titleScreen{position:absolute;inset:0;z-index:100;display:none;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,#5bc8f5 0%,#87CEEB 45%,#a8e6a3 100%);}
+#titleScreen::before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 120px 50px at 15% 20%,rgba(255,255,255,0.7) 0%,transparent 70%),radial-gradient(ellipse 160px 60px at 70% 12%,rgba(255,255,255,0.6) 0%,transparent 70%);}
+#titleScreen h1{font-family:'Fredoka One',cursive;font-size:clamp(38px,9vw,68px);color:#FFD700;letter-spacing:4px;text-shadow:4px 4px 0 #000,7px 7px 0 #b8860b;animation:bounce 1s infinite alternate;margin-bottom:25px;text-align:center;position:relative;}
+@keyframes bounce{0%{transform:translateY(0);}100%{transform:translateY(-12px);}}
+.menuBtn{display:flex;align-items:center;justify-content:center;gap:10px;padding:15px 38px;font-size:clamp(18px,4vw,22px);border:none;border-radius:14px;margin:7px;cursor:pointer;font-family:'Fredoka One',cursive;letter-spacing:1px;min-width:min(75vw,230px);transition:transform 0.12s,box-shadow 0.12s;}
+.menuBtn:active{transform:translateY(4px);}
+#playBtn{background:linear-gradient(160deg,#ffe234,#fbc02d);color:#1a0f00;box-shadow:0 6px 0 #c97c00;}
+#settingsBtnMain{background:linear-gradient(160deg,#ff9800,#e65100);color:#fff;box-shadow:0 6px 0 #7f2400;}
+#storeBtn{background:linear-gradient(160deg,#29b6f6,#0277bd);color:#fff;box-shadow:0 6px 0 #014f85;}
+#titleBottomRow{display:flex;gap:8px;margin:7px;justify-content:center;}
+.thirdBtn{display:flex;align-items:center;justify-content:center;gap:6px;padding:13px 0;font-size:clamp(13px,3vw,16px);border:none;border-radius:14px;cursor:pointer;font-family:'Fredoka One',cursive;width:min(27vw,105px);transition:transform 0.12s,box-shadow 0.12s;position:relative;}
+.thirdBtn:active{transform:translateY(4px);}
+#leaderboardBtn{background:linear-gradient(160deg,#ab47bc,#7b1fa2);color:#fff;box-shadow:0 5px 0 #4a0072;}
+#friendsBtn{background:linear-gradient(160deg,#26a69a,#00695c);color:#fff;box-shadow:0 5px 0 #003d35;}
+#dmTitleBtn{background:linear-gradient(160deg,#ef5350,#b71c1c);color:#fff;box-shadow:0 5px 0 #7f0000;}
+.notifBadge{position:absolute;top:-6px;right:-6px;background:#FF5722;color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;display:flex;align-items:center;justify-content:center;font-family:'Fredoka One',cursive;display:none;}
+
+/* ===== SHARED SCREEN ===== */
+.fullScreen{position:absolute;inset:0;z-index:100;display:none;flex-direction:column;}
+.screenHeader{position:relative;z-index:2;height:62px;display:flex;align-items:center;padding:0 18px;background:rgba(0,0,0,0.45);border-bottom:2px solid rgba(255,255,255,0.08);backdrop-filter:blur(12px);flex-shrink:0;}
+.backBtn{background:rgba(255,165,0,0.15);color:#FFA500;border:2px solid rgba(255,165,0,0.5);border-radius:10px;padding:7px 14px;font-size:20px;cursor:pointer;font-family:'Fredoka One',cursive;transition:0.2s;flex-shrink:0;}
+.backBtn:active{background:rgba(255,165,0,0.35);}
+.screenHeader h2{color:#fff;margin:0 0 0 16px;font-size:22px;font-family:'Fredoka One',cursive;letter-spacing:1px;flex:1;}
+.screenBody{flex:1;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch;}
+.listMsg{color:rgba(255,255,255,0.5);text-align:center;padding:30px;font-family:'Fredoka One',cursive;font-size:18px;}
+
+/* ===== LEADERBOARD ===== */
+#leaderboardScreen{background:radial-gradient(ellipse at 50% 0%,#2d1b4e 0%,#0a0614 100%);}
+#lbMyScore{background:rgba(255,215,0,0.1);border:2px solid rgba(255,215,0,0.3);border-radius:14px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;}
+#lbMyScore .lbPfp{font-size:28px;}#lbMyScore .lbInfo{flex:1;}
+#lbMyScore .lbName{color:#FFD700;font-size:18px;font-family:'Fredoka One',cursive;}
+#lbMyScore .lbScore{color:rgba(255,215,0,0.7);font-size:14px;}
+#lbMyScore .lbRank{color:#FFD700;font-size:22px;font-family:'Fredoka One',cursive;}
+.lbEntry{display:flex;align-items:center;gap:12px;padding:13px 16px;margin:8px 0;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);cursor:pointer;transition:0.2s;}
+.lbEntry:active{background:rgba(255,255,255,0.1);}
+.lbEntry.top1{background:rgba(255,215,0,0.12);border-color:rgba(255,215,0,0.3);}
+.lbEntry.top2{background:rgba(192,192,192,0.1);border-color:rgba(192,192,192,0.25);}
+.lbEntry.top3{background:rgba(205,127,50,0.1);border-color:rgba(205,127,50,0.25);}
+.lbRankNum{font-size:20px;font-family:'Fredoka One',cursive;color:rgba(255,255,255,0.5);min-width:32px;}
+.lbEntry.top1 .lbRankNum{color:#FFD700;}.lbEntry.top2 .lbRankNum{color:#C0C0C0;}.lbEntry.top3 .lbRankNum{color:#CD7F32;}
+.lbEmoji{font-size:26px;}.lbEntryName{flex:1;color:#fff;font-size:16px;font-family:'Fredoka One',cursive;}.lbEntryScore{color:#FFD700;font-size:17px;font-family:'Fredoka One',cursive;}
+.lbLvl{font-size:12px;color:rgba(255,255,255,0.4);margin-top:1px;}
+
+/* ===== PLAYERS ===== */
+#friendsScreen{background:radial-gradient(ellipse at 50% 0%,#0d3d38 0%,#060f0e 100%);}
+#friendsSearch{width:100%;padding:12px 16px;font-size:16px;font-family:'Fredoka One',cursive;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;outline:none;margin-bottom:14px;}
+#friendsSearch::placeholder{color:rgba(255,255,255,0.3);}
+.playerRow{display:flex;align-items:center;gap:10px;padding:11px 12px;margin:7px 0;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);transition:0.2s;}
+.playerPfp{font-size:30px;flex-shrink:0;cursor:pointer;}
+.playerInfo{flex:1;cursor:pointer;}
+.playerName{color:#fff;font-size:16px;font-family:'Fredoka One',cursive;}
+.playerSub{color:rgba(255,215,0,0.7);font-size:12px;margin-top:2px;}
+.playerBtns{display:flex;gap:6px;flex-shrink:0;}
+.followBtn{padding:7px 14px;border:none;border-radius:10px;cursor:pointer;font-family:'Fredoka One',cursive;font-size:13px;transition:0.2s;}
+.followBtn.follow{background:linear-gradient(160deg,#26a69a,#00695c);color:#fff;}
+.followBtn.following{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.2);}
+.msgBtn{padding:7px 12px;border:none;border-radius:10px;cursor:pointer;font-family:'Fredoka One',cursive;font-size:15px;background:linear-gradient(160deg,#ef5350,#b71c1c);color:#fff;transition:0.2s;}
+.msgBtn:active,.followBtn:active{transform:scale(0.95);}
+
+/* ===== PROFILE ===== */
+#profileScreen{background:linear-gradient(180deg,#0d1b2a 0%,#060f15 100%);}
+#profileHeader{padding:20px 16px 0;display:flex;flex-direction:column;align-items:center;}
+#profilePfpBig{font-size:68px;margin-bottom:6px;}
+#profileUsername{color:#fff;font-size:22px;font-family:'Fredoka One',cursive;margin-bottom:4px;}
+#profileLvlBadge{background:linear-gradient(160deg,#FFD700,#f9a825);color:#1a0f00;font-size:13px;padding:3px 12px;border-radius:20px;font-family:'Fredoka One',cursive;margin-bottom:12px;}
+#profileStats{display:flex;gap:0;margin-bottom:14px;border-radius:14px;overflow:hidden;border:2px solid rgba(255,255,255,0.08);width:100%;}
+.profileStat{flex:1;text-align:center;padding:12px 8px;background:rgba(255,255,255,0.04);border-right:1px solid rgba(255,255,255,0.08);cursor:pointer;transition:0.2s;}
+.profileStat:last-child{border-right:none;}
+.profileStat:active{background:rgba(255,255,255,0.1);}
+.profileStatNum{color:#FFD700;font-size:20px;font-family:'Fredoka One',cursive;}
+.profileStatLabel{color:rgba(255,255,255,0.5);font-size:11px;margin-top:2px;}
+#profileActionRow{display:flex;gap:8px;width:100%;margin-bottom:14px;}
+#profileFollowBtn{flex:1;padding:12px;font-size:17px;border:none;border-radius:14px;cursor:pointer;font-family:'Fredoka One',cursive;transition:0.15s;}
+#profileFollowBtn.follow{background:linear-gradient(160deg,#26a69a,#00695c);color:#fff;box-shadow:0 4px 0 #003d35;}
+#profileFollowBtn.following{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);border:2px solid rgba(255,255,255,0.15);}
+#profileFollowBtn.itsme{background:rgba(255,215,0,0.1);color:#FFD700;border:2px solid rgba(255,215,0,0.3);cursor:default;}
+#profileMsgBtn{padding:12px 18px;font-size:20px;border:none;border-radius:14px;cursor:pointer;background:linear-gradient(160deg,#ef5350,#b71c1c);color:#fff;box-shadow:0 4px 0 #7f0000;transition:0.15s;}
+#profileFollowBtn:active,#profileMsgBtn:active{transform:translateY(3px);}
+.profileDetailRow{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:8px 0;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);}
+.profileDetailIcon{font-size:22px;flex-shrink:0;}
+.profileDetailLabel{color:rgba(255,255,255,0.5);font-size:12px;}
+.profileDetailVal{color:#fff;font-size:16px;font-family:'Fredoka One',cursive;margin-top:2px;}
+#profileBirdsRow{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+.profileBirdChip{background:rgba(255,255,255,0.08);border-radius:8px;padding:3px 10px;font-size:12px;color:#fff;}
+/* XP bar on profile */
+#profileXpWrap{width:100%;margin-bottom:14px;}
+.xpBarOuter{background:rgba(255,255,255,0.08);border-radius:20px;height:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);}
+.xpBarInner{height:100%;background:linear-gradient(90deg,#FFD700,#ff9800);border-radius:20px;transition:width 0.5s ease;}
+.xpLabel{color:rgba(255,255,255,0.45);font-size:11px;text-align:right;margin-top:3px;}
+
+/* ===== FOLLOW LIST ===== */
+#followListScreen{background:linear-gradient(180deg,#0d1b2a 0%,#060f15 100%);}
+
+/* ===== DM LIST ===== */
+#dmListScreen{background:linear-gradient(180deg,#1a0a0a 0%,#0a0505 100%);}
+.dmConvRow{display:flex;align-items:center;gap:12px;padding:13px 14px;margin:7px 0;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);cursor:pointer;transition:0.2s;position:relative;}
+.dmConvRow:active{background:rgba(255,255,255,0.1);}
+.dmConvPfp{font-size:32px;flex-shrink:0;}
+.dmConvInfo{flex:1;overflow:hidden;}
+.dmConvName{color:#fff;font-size:16px;font-family:'Fredoka One',cursive;}
+.dmConvLast{color:rgba(255,255,255,0.45);font-size:13px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dmConvTime{color:rgba(255,255,255,0.3);font-size:11px;flex-shrink:0;}
+.dmUnreadDot{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:10px;height:10px;background:#ef5350;border-radius:50%;display:none;}
+
+/* ===== CHAT SCREEN ===== */
+#chatScreen{background:linear-gradient(180deg,#1a0a0a 0%,#0a0505 100%);}
+#chatHeaderInfo{display:flex;flex-direction:column;}
+#chatHeaderName{color:#fff;font-size:18px;font-family:'Fredoka One',cursive;}
+#chatHeaderSub{color:rgba(255,255,255,0.45);font-size:12px;}
+#chatMessages{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;-webkit-overflow-scrolling:touch;}
+#chatInputRow{display:flex;gap:8px;padding:10px 14px;background:rgba(0,0,0,0.4);border-top:1px solid rgba(255,255,255,0.08);flex-shrink:0;}
+#chatInput{flex:1;padding:12px 16px;font-size:16px;font-family:'Fredoka One',cursive;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;outline:none;max-height:80px;resize:none;}
+#chatInput::placeholder{color:rgba(255,255,255,0.3);}
+#chatSendBtn{padding:12px 18px;background:linear-gradient(160deg,#ef5350,#b71c1c);color:#fff;border:none;border-radius:12px;cursor:pointer;font-size:20px;flex-shrink:0;transition:0.15s;box-shadow:0 4px 0 #7f0000;}
+#chatSendBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #7f0000;}
+.msgBubble{max-width:75%;padding:10px 14px;border-radius:18px;font-family:'Fredoka One',cursive;font-size:15px;line-height:1.4;word-break:break-word;}
+.msgBubble.mine{background:linear-gradient(160deg,#ef5350,#b71c1c);color:#fff;align-self:flex-end;border-bottom-right-radius:4px;}
+.msgBubble.theirs{background:rgba(255,255,255,0.1);color:#fff;align-self:flex-start;border-bottom-left-radius:4px;}
+.msgTime{font-size:10px;color:rgba(255,255,255,0.35);margin-top:3px;text-align:right;}
+.msgBubble.theirs .msgTime{text-align:left;}
+.msgWrap{display:flex;flex-direction:column;}
+.msgWrap.mine{align-items:flex-end;}
+.msgWrap.theirs{align-items:flex-start;}
+
+/* ===== SETTINGS ===== */
+#settingsScreen{position:absolute;inset:0;z-index:100;display:none;background:linear-gradient(135deg,#0d1b2a 0%,#1b2838 50%,#0d1b2a 100%);}
+#settingsScreen::before{content:'';position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px);background-size:40px 40px;}
+#settingsBody{display:flex;height:calc(100% - 62px);position:relative;z-index:1;margin-top:62px;}
+#settingsLeft{width:38%;padding:18px 12px;display:flex;flex-direction:column;gap:10px;border-right:1px solid rgba(255,255,255,0.07);background:rgba(0,0,0,0.2);}
+.settingsTab{width:100%;padding:15px 16px;font-size:clamp(15px,3.5vw,18px);border:2px solid rgba(255,255,255,0.07);border-radius:12px;cursor:pointer;font-family:'Fredoka One',cursive;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.55);transition:0.2s;text-align:left;}
+.settingsTab.active{background:linear-gradient(135deg,rgba(76,175,80,0.25),rgba(56,142,60,0.2));border-color:rgba(76,175,80,0.6);color:#fff;}
+#settingsLeftBottom{margin-top:auto;}
+#accountTab{width:100%;padding:12px 14px;border:2px solid rgba(255,255,255,0.07);border-radius:12px;cursor:pointer;font-family:'Fredoka One',cursive;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.55);transition:0.2s;text-align:left;display:flex;align-items:center;gap:8px;font-size:16px;}
+#accountTab.active{background:linear-gradient(135deg,rgba(171,71,188,0.25),rgba(123,31,162,0.2));border-color:rgba(171,71,188,0.6);color:#fff;}
+#settingsRight{flex:1;padding:22px 18px;overflow-y:auto;}
+.settingsPanel{display:none;}.settingsPanel.active{display:block;}
+.settingsPanel h3{color:#fff;font-size:20px;margin-bottom:18px;font-family:'Fredoka One',cursive;letter-spacing:1px;}
+.diffOption{display:flex;align-items:center;gap:14px;padding:14px 18px;margin:9px 0;border-radius:12px;background:rgba(255,255,255,0.05);cursor:pointer;border:2px solid rgba(255,255,255,0.07);transition:0.2s;}
+.diffOption.selected{border-color:rgba(76,175,80,0.7);background:rgba(76,175,80,0.12);}
+.diffOption input{display:none;}
+.diffDot{width:20px;height:20px;border-radius:50%;border:3px solid rgba(255,255,255,0.3);flex-shrink:0;transition:0.2s;}
+.diffOption.selected .diffDot{border-color:#4CAF50;background:#4CAF50;}
+.diffLabel{color:#fff;font-size:18px;font-family:'Fredoka One',cursive;}
+.diffDesc{color:rgba(255,255,255,0.45);font-size:12px;margin-top:2px;}
+.soundRow{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;margin:7px 0;border-radius:11px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);}
+.soundRow.master{background:rgba(76,175,80,0.1);border-color:rgba(76,175,80,0.3);margin-bottom:14px;}
+.soundName{color:#fff;font-size:clamp(14px,3.2vw,16px);font-family:'Fredoka One',cursive;}
+.soundName span{font-size:11px;color:rgba(255,255,255,0.4);display:block;margin-top:1px;}
+.toggle{position:relative;width:52px;height:28px;background:#333;border-radius:28px;cursor:pointer;transition:background 0.3s;flex-shrink:0;border:1px solid rgba(255,255,255,0.1);}
+.toggle.on{background:linear-gradient(135deg,#4CAF50,#2e7d32);}
+.toggle::after{content:'';position:absolute;width:20px;height:20px;background:#fff;border-radius:50%;top:3px;left:3px;transition:left 0.3s;box-shadow:0 2px 6px rgba(0,0,0,0.4);}
+.toggle.on::after{left:28px;}
+/* Account panel */
+#accountPanel .myAccCard{background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.1);border-radius:16px;padding:16px;margin-bottom:14px;}
+#accountPanel .myAccTop{display:flex;align-items:center;gap:14px;margin-bottom:10px;}
+#accountPanel .myAccPfp{font-size:48px;}
+#accountPanel .myAccInfo{flex:1;}
+#accountPanel .myAccName{color:#fff;font-size:20px;font-family:'Fredoka One',cursive;}
+#accountPanel .myAccSub{color:rgba(255,215,0,0.8);font-size:13px;margin-top:2px;}
+/* Level bar in account */
+.myLvlRow{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.myLvlBadge{background:linear-gradient(160deg,#FFD700,#f9a825);color:#1a0f00;font-size:13px;padding:3px 10px;border-radius:20px;font-family:'Fredoka One',cursive;flex-shrink:0;}
+.myXpBarOuter{flex:1;background:rgba(255,255,255,0.08);border-radius:20px;height:12px;overflow:hidden;}
+.myXpBarInner{height:100%;background:linear-gradient(90deg,#FFD700,#ff9800);border-radius:20px;transition:width 0.5s;}
+.myXpLabel{color:rgba(255,255,255,0.4);font-size:11px;text-align:right;margin-top:2px;}
+#myAccFollowRow{display:flex;gap:10px;}
+.myAccFollowBtn{flex:1;padding:11px 0;text-align:center;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;cursor:pointer;transition:0.2s;}
+.myAccFollowBtn:active{background:rgba(255,255,255,0.12);}
+.myAccFollowNum{color:#FFD700;font-size:20px;font-family:'Fredoka One',cursive;}
+.myAccFollowLabel{color:rgba(255,255,255,0.5);font-size:12px;}
+#editPfpBtn{width:100%;padding:12px;font-size:17px;background:linear-gradient(160deg,#ab47bc,#7b1fa2);color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:'Fredoka One',cursive;box-shadow:0 5px 0 #4a0072;transition:0.15s;margin-bottom:10px;}
+#editPfpBtn:active{transform:translateY(3px);box-shadow:0 2px 0 #4a0072;}
+#logoutBtn{width:100%;padding:14px;font-size:18px;background:linear-gradient(160deg,#f44336,#b71c1c);color:#fff;border:none;border-radius:14px;cursor:pointer;font-family:'Fredoka One',cursive;box-shadow:0 5px 0 #7f0000;transition:0.15s;}
+#logoutBtn:active{transform:translateY(4px);box-shadow:0 2px 0 #7f0000;}
+
+/* PFP EDIT POPUP */
+#pfpEditPopup{position:absolute;inset:0;z-index:500;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);}
+#pfpEditBox{background:#1b2838;border:2px solid rgba(255,255,255,0.12);border-radius:20px;padding:24px;text-align:center;min-width:280px;}
+#pfpEditBox h3{color:#fff;margin-bottom:16px;font-family:'Fredoka One',cursive;font-size:20px;}
+#pfpEditRow{display:flex;gap:14px;justify-content:center;margin-bottom:20px;}
+.pfpEditOpt{font-size:40px;cursor:pointer;padding:10px;border-radius:50%;border:3px solid transparent;transition:0.2s;background:rgba(255,255,255,0.05);}
+.pfpEditOpt.selected{border-color:#FFD700;background:rgba(255,215,0,0.15);transform:scale(1.15);}
+#pfpEditSave{padding:12px 40px;font-size:18px;background:linear-gradient(160deg,#4CAF50,#2e7d32);color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:'Fredoka One',cursive;box-shadow:0 5px 0 #1b5e20;margin-right:8px;transition:0.15s;}
+#pfpEditCancel{padding:12px 24px;font-size:18px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:none;border-radius:12px;cursor:pointer;font-family:'Fredoka One',cursive;}
+
+/* ===== STORE ===== */
+#storeScreen{position:absolute;inset:0;z-index:100;display:none;flex-direction:column;align-items:center;background:radial-gradient(ellipse at 50% 0%,#1a2744 0%,#0a0f1e 60%,#060810 100%);}
+#storeScreen::before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle 300px at 20% 80%,rgba(76,175,80,0.06) 0%,transparent 70%),radial-gradient(circle 250px at 80% 20%,rgba(41,182,246,0.06) 0%,transparent 70%);}
+#storeBody{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;height:calc(100% - 62px);margin-top:62px;width:100%;padding:12px 14px;overflow-y:auto;}
+#storeCoinBal{background:rgba(255,215,0,0.12);border:2px solid rgba(255,215,0,0.3);border-radius:12px;padding:10px 20px;margin-bottom:12px;font-family:'Fredoka One',cursive;font-size:20px;color:#FFD700;}
+#upperSkinDisplay{text-align:center;margin:8px 0 10px;}
+#upperSkinDisplay img{width:min(35vw,120px);height:min(35vw,120px);border-radius:18px;object-fit:cover;border:3px solid #4CAF50;box-shadow:0 0 0 5px rgba(76,175,80,0.15),0 8px 28px rgba(0,0,0,0.7);}
+#upperSkinDisplay .skinTitle{color:#fff;font-size:20px;font-family:'Fredoka One',cursive;margin-top:8px;}
+.skinRow{display:flex;gap:12px;width:100%;padding:8px 4px 12px;overflow-x:auto;}
+.skinRow::-webkit-scrollbar{height:4px;}
+.skinRow::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:4px;}
+.skinBox{min-width:120px;flex-shrink:0;text-align:center;cursor:pointer;position:relative;padding:10px;border-radius:14px;transition:0.2s;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.08);}
+.skinBox:active{transform:scale(0.96);}
+.skinBox.selected{border-color:#4CAF50;background:rgba(76,175,80,0.12);box-shadow:0 0 16px rgba(76,175,80,0.25);}
+.skinBox.owned{border-color:rgba(76,175,80,0.4);}
+.skinBox img{width:80px;height:80px;border-radius:10px;object-fit:cover;display:block;margin:0 auto;}
+.skinBox .sName{font-size:13px;color:#fff;margin:6px 0 2px;font-family:'Fredoka One',cursive;}
+.skinBox .sPrice{font-size:12px;color:#FFD700;font-family:'Fredoka One',cursive;}
+.lockOverlay{position:absolute;inset:0;border-radius:12px;background:rgba(0,0,0,0.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+.lockOverlay span{font-size:24px;}.lockOverlay small{font-size:11px;color:rgba(255,215,0,0.8);font-family:'Fredoka One',cursive;}
+#confirmSkinBtn{padding:15px 44px;font-size:19px;border-radius:14px;margin-top:10px;border:none;cursor:pointer;font-family:'Fredoka One',cursive;letter-spacing:1px;transition:0.15s;box-shadow:0 6px 0 rgba(0,0,0,0.4);}
+#confirmSkinBtn.unlocked{background:linear-gradient(160deg,#4CAF50,#2e7d32);color:#fff;}
+#confirmSkinBtn.buy{background:linear-gradient(160deg,#FFD700,#f9a825);color:#1a0f00;}
+#confirmSkinBtn.locked{background:#2a2a2a;color:#555;cursor:not-allowed;}
+#confirmSkinBtn.unlocked:active,#confirmSkinBtn.buy:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,0.4);}
+
+/* ===== GAME UI ===== */
+#pauseBtn{position:absolute;right:14px;top:14px;display:none;z-index:50;background:rgba(0,0,0,0.55);color:#fff;padding:10px 16px;font-size:18px;border:2px solid rgba(255,255,255,0.2);border-radius:12px;cursor:pointer;font-family:'Fredoka One',cursive;backdrop-filter:blur(6px);transition:0.2s;}
+#pauseBtn:active{background:rgba(255,165,0,0.55);}
+#pauseOverlay{position:absolute;inset:0;z-index:150;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.82);backdrop-filter:blur(10px);}
+#pauseOverlay h2{font-family:'Fredoka One',cursive;font-size:clamp(38px,9vw,56px);color:#FFD700;letter-spacing:4px;margin-bottom:36px;text-shadow:3px 3px 0 #7a5800;}
+.pauseMenuBtn{padding:16px 52px;font-size:clamp(18px,4vw,22px);border:none;border-radius:14px;margin:9px;cursor:pointer;font-family:'Fredoka One',cursive;letter-spacing:1px;min-width:min(75vw,240px);transition:0.12s;}
+.pauseMenuBtn:active{transform:translateY(4px);}
+#pauseResumeBtn{background:linear-gradient(160deg,#4CAF50,#2e7d32);color:#fff;box-shadow:0 6px 0 #1b5e20;}
+#pauseHomeBtn{background:linear-gradient(160deg,#29b6f6,#0277bd);color:#fff;box-shadow:0 6px 0 #014f85;}
+#gameOverOverlay{position:absolute;inset:0;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:center;color:#fff;opacity:0;transition:opacity 0.7s;background:rgba(0,0,0,0.86);backdrop-filter:blur(10px);}
+#gameOverOverlay h2{font-family:'Fredoka One',cursive;font-size:clamp(38px,10vw,66px);color:#ff4444;letter-spacing:4px;margin-bottom:8px;text-shadow:4px 4px 0 #660000;animation:shake 0.45s ease;}
+@keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-10px);}60%{transform:translateX(8px);}}
+.newRecord{font-family:'Fredoka One',cursive;color:#FFD700;font-size:clamp(18px,4vw,22px);animation:pulse 0.55s infinite alternate;display:none;margin-bottom:6px;}
+@keyframes pulse{0%{transform:scale(1);}100%{transform:scale(1.08);}}
+.scoreBoard{background:rgba(255,255,255,0.07);border:2px solid rgba(255,255,255,0.12);border-radius:16px;padding:12px 24px;margin:5px;text-align:center;}
+.scoreBoard .label{font-size:12px;color:rgba(255,255,255,0.5);font-family:'Fredoka One',cursive;}
+.scoreBoard .val{font-size:34px;color:#FFD700;font-family:'Fredoka One',cursive;}
+#goBoardRow{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
+/* Level up popup in game over */
+#levelUpBanner{background:linear-gradient(160deg,#FFD700,#ff9800);color:#1a0f00;padding:8px 20px;border-radius:20px;font-family:'Fredoka One',cursive;font-size:18px;margin-bottom:8px;display:none;}
+.goBtn{padding:14px 38px;font-size:clamp(17px,4vw,20px);border:none;border-radius:14px;margin:6px;cursor:pointer;font-family:'Fredoka One',cursive;letter-spacing:1px;min-width:min(60vw,175px);transition:0.12s;}
+.goBtn:active{transform:translateY(4px);}
+#restartBtn{background:linear-gradient(160deg,#ff5722,#bf360c);color:#fff;box-shadow:0 6px 0 #7f1d08;}
+#homeBtn{background:linear-gradient(160deg,#29b6f6,#0277bd);color:#fff;box-shadow:0 6px 0 #014f85;}
+#madeBy{position:absolute;bottom:12px;right:14px;font-size:12px;z-index:300;color:rgba(255,255,255,0.75);font-family:'Fredoka One',cursive;background:rgba(0,0,0,0.35);padding:4px 10px;border-radius:8px;}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="authScreen">
+    <div id="authTitle">🕹️ FLUPPY BIRD</div>
+    <div id="authTabs">
+        <button class="authTab active" id="tabSignup" onclick="switchAuthTab('signup')">Sign Up</button>
+        <button class="authTab" id="tabLogin" onclick="switchAuthTab('login')">Login</button>
+    </div>
+    <div id="pfpSection"><p>Choose your avatar</p>
+        <div id="pfpRow">
+            <span class="pfpOption selected" onclick="selectPfp(this,'😎')">😎</span>
+            <span class="pfpOption" onclick="selectPfp(this,'😈')">😈</span>
+            <span class="pfpOption" onclick="selectPfp(this,'🤡')">🤡</span>
+            <span class="pfpOption" onclick="selectPfp(this,'😝')">😝</span>
+            <span class="pfpOption" onclick="selectPfp(this,'😔')">😔</span>
+        </div>
+    </div>
+    <input class="authInput" id="usernameInput" type="text" placeholder="Username" maxlength="16" autocomplete="off">
+    <input class="authInput" id="passwordInput" type="password" placeholder="Password" autocomplete="off">
+    <button id="authBtn" onclick="handleAuth()">🚀 Sign Up</button>
+    <div id="authError"></div>
+    <div id="authLoading">⏳ Please wait...</div>
+</div>
+
+<!-- LOADING -->
+<div id="loadingScreen">
+    <div id="loadTitle">🕹️ FLUPPY BIRD</div>
+    <div id="loadIconRow">
+        <span class="loadIcon" id="lico_0">🐦</span><span class="loadIcon" id="lico_1">🦜</span>
+        <span class="loadIcon" id="lico_2">🦅</span><span class="loadIcon" id="lico_3">🎵</span><span class="loadIcon" id="lico_4">🔊</span>
+    </div>
+    <div id="loadBarWrap"><div id="loadBar"></div></div>
+    <div id="loadPercent">0%</div>
+    <div id="loadStatus">Loading game assets...</div>
+</div>
+
+<!-- SPLASH -->
+<div id="splashScreen">
+    <div id="splashImgWrap"><img src="splash_screen.png" alt="Fluppy Bird"></div>
+    <button id="okBtn">▶ OK, LET'S GO!</button>
+</div>
+
+<!-- TITLE -->
+<div id="titleScreen">
+    <h1>🕹️ Fluppy Bird</h1>
+    <button id="playBtn" class="menuBtn">▶ Play Game</button>
+    <button id="settingsBtnMain" class="menuBtn">⚙️ Settings</button>
+    <button id="storeBtn" class="menuBtn">🛍️ Store</button>
+    <div id="titleBottomRow">
+        <button id="leaderboardBtn" class="thirdBtn">🏆<br><span style="font-size:11px;">Ranks</span></button>
+        <button id="friendsBtn" class="thirdBtn">👥<br><span style="font-size:11px;">Players</span></button>
+        <button id="dmTitleBtn" class="thirdBtn">
+            💬<br><span style="font-size:11px;">Messages</span>
+            <div class="notifBadge" id="dmBadge">0</div>
+        </button>
+    </div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="leaderboardScreen" class="fullScreen" style="background:radial-gradient(ellipse at 50% 0%,#2d1b4e 0%,#0a0614 100%);">
+    <div class="screenHeader"><button class="backBtn" id="lbBackBtn">← Back</button><h2>🏆 Leaderboard</h2></div>
+    <div class="screenBody"><div id="lbMyScore"></div><div id="lbList"><div class="listMsg">Loading... ⏳</div></div></div>
+</div>
+
+<!-- PLAYERS -->
+<div id="friendsScreen" class="fullScreen" style="background:radial-gradient(ellipse at 50% 0%,#0d3d38 0%,#060f0e 100%);">
+    <div class="screenHeader"><button class="backBtn" id="friendsBackBtn">← Back</button><h2>👥 Players</h2></div>
+    <div class="screenBody">
+        <input id="friendsSearch" placeholder="🔍 Search players..." oninput="filterPlayers(this.value)">
+        <div id="playersList"><div class="listMsg">Loading... ⏳</div></div>
+    </div>
+</div>
+
+<!-- PROFILE -->
+<div id="profileScreen" class="fullScreen">
+    <div class="screenHeader"><button class="backBtn" id="profileBackBtn">← Back</button><h2 id="profileHeaderName">Profile</h2></div>
+    <div class="screenBody" style="padding:0;overflow-y:auto;">
+        <div id="profileHeader">
+            <div id="profilePfpBig">😎</div>
+            <div id="profileUsername">Player</div>
+            <div id="profileLvlBadge">⭐ Level 1</div>
+            <div id="profileXpWrap">
+                <div class="xpBarOuter"><div class="xpBarInner" id="profileXpBar" style="width:0%"></div></div>
+                <div class="xpLabel" id="profileXpLabel">0 / 100 XP</div>
+            </div>
+            <div id="profileStats">
+                <div class="profileStat" onclick="openFollowList('followers')">
+                    <div class="profileStatNum" id="profileFollowersNum">0</div>
+                    <div class="profileStatLabel">Followers</div>
+                </div>
+                <div class="profileStat" onclick="openFollowList('following')">
+                    <div class="profileStatNum" id="profileFollowingNum">0</div>
+                    <div class="profileStatLabel">Following</div>
+                </div>
+                <div class="profileStat">
+                    <div class="profileStatNum" id="profileScoreNum">0</div>
+                    <div class="profileStatLabel">Best Score</div>
+                </div>
+            </div>
+            <div id="profileActionRow">
+                <button id="profileFollowBtn" class="follow">➕ Follow</button>
+                <button id="profileMsgBtn">💬</button>
+            </div>
+        </div>
+        <div style="height:1px;background:rgba(255,255,255,0.08);margin:0 0 14px;"></div>
+        <div id="profileDetails" style="padding:0 16px 20px;">
+            <div class="profileDetailRow"><div class="profileDetailIcon">🪙</div><div><div class="profileDetailLabel">Coins</div><div class="profileDetailVal" id="profileCoinsVal">0</div></div></div>
+            <div class="profileDetailRow"><div class="profileDetailIcon">🎮</div><div><div class="profileDetailLabel">Best Score</div><div class="profileDetailVal" id="profileScoreVal">0</div></div></div>
+            <div class="profileDetailRow"><div class="profileDetailIcon">🐦</div><div><div class="profileDetailLabel">Birds Owned</div><div id="profileBirdsRow" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- FOLLOW LIST -->
+<div id="followListScreen" class="fullScreen" style="background:linear-gradient(180deg,#0d1b2a 0%,#060f15 100%);">
+    <div class="screenHeader"><button class="backBtn" id="followListBackBtn">← Back</button><h2 id="followListTitle">Followers</h2></div>
+    <div class="screenBody"><div id="followListContent"><div class="listMsg">Loading... ⏳</div></div></div>
+</div>
+
+<!-- DM LIST -->
+<div id="dmListScreen" class="fullScreen">
+    <div class="screenHeader"><button class="backBtn" id="dmListBackBtn">← Back</button><h2>💬 Messages</h2></div>
+    <div class="screenBody"><div id="dmConvList"><div class="listMsg">No messages yet 💬<br><span style="font-size:14px;color:rgba(255,255,255,0.3);">Go to Players to start a chat!</span></div></div></div>
+</div>
+
+<!-- CHAT SCREEN -->
+<div id="chatScreen" class="fullScreen">
+    <div class="screenHeader">
+        <button class="backBtn" id="chatBackBtn">← Back</button>
+        <div style="margin-left:12px;">
+            <div id="chatHeaderName">Player</div>
+            <div id="chatHeaderSub">tap to view profile</div>
+        </div>
+    </div>
+    <div id="chatMessages"></div>
+    <div id="chatInputRow">
+        <textarea id="chatInput" placeholder="Type a message..." rows="1" maxlength="500"></textarea>
+        <button id="chatSendBtn">➤</button>
+    </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="settingsScreen">
+    <div class="screenHeader" style="position:absolute;top:0;left:0;right:0;z-index:2;">
+        <button class="backBtn" id="settingsBackBtn">← Back</button><h2>⚙️ Settings</h2>
+    </div>
+    <div id="settingsBody">
+        <div id="settingsLeft">
+            <button class="settingsTab active" data-tab="difficulty">🎯 Difficulty</button>
+            <button class="settingsTab" data-tab="sounds">🔊 Sounds</button>
+            <div id="settingsLeftBottom">
+                <button id="accountTab"><span id="accountTabPfp">😎</span><span id="accountTabName">Account</span></button>
+            </div>
+        </div>
+        <div id="settingsRight">
+            <div class="settingsPanel active" id="difficultyPanel">
+                <h3>🎯 Select Difficulty</h3>
+                <label class="diffOption selected" id="diff_VeryEasy"><input type="radio" name="difficulty" value="Very Easy"><div class="diffDot"></div><div><div class="diffLabel">😊 Very Easy</div><div class="diffDesc">Large gap, slow speed</div></div></label>
+                <label class="diffOption" id="diff_Normal"><input type="radio" name="difficulty" value="Normal"><div class="diffDot"></div><div><div class="diffLabel">😐 Normal</div><div class="diffDesc">Medium gap, normal speed</div></div></label>
+                <label class="diffOption" id="diff_Hard"><input type="radio" name="difficulty" value="Hard"><div class="diffDot"></div><div><div class="diffLabel">😤 Hard</div><div class="diffDesc">Small gap, fast speed</div></div></label>
+            </div>
+            <div class="settingsPanel" id="soundsPanel">
+                <h3>🔊 Sound Settings</h3>
+                <div class="soundRow master"><div class="soundName">🔊 All Sounds<span>Toggle all at once</span></div><div class="toggle on" id="tog_all"></div></div>
+                <div class="soundRow"><div class="soundName">🎵 Background Music<span>Plays during game</span></div><div class="toggle on" id="tog_bgmusic"></div></div>
+                <div class="soundRow"><div class="soundName">🪙 Score Sound<span>When passing a pipe</span></div><div class="toggle on" id="tog_score"></div></div>
+                <div class="soundRow"><div class="soundName">🐦 Bird Fly Sound<span>When you tap</span></div><div class="toggle on" id="tog_fly"></div></div>
+                <div class="soundRow"><div class="soundName">⏳ Countdown Sound<span>3... 2... 1...</span></div><div class="toggle on" id="tog_countdown"></div></div>
+                <div class="soundRow"><div class="soundName">🟢 GO! Sound<span>Game start</span></div><div class="toggle on" id="tog_go"></div></div>
+                <div class="soundRow"><div class="soundName">🔘 Button Sound<span>Button press</span></div><div class="toggle on" id="tog_button"></div></div>
+                <div class="soundRow"><div class="soundName">💀 Game Over Sound<span>When you crash</span></div><div class="toggle on" id="tog_gameover"></div></div>
+            </div>
+            <div class="settingsPanel" id="accountPanel">
+                <h3>👤 My Account</h3>
+                <div class="myAccCard">
+                    <div class="myAccTop">
+                        <div class="myAccPfp" id="myAccPfp">😎</div>
+                        <div class="myAccInfo">
+                            <div class="myAccName" id="myAccName">Player</div>
+                            <div class="myAccSub" id="myAccSub">Best: 0 | 🪙 0</div>
+                        </div>
+                    </div>
+                    <div class="myLvlRow">
+                        <div class="myLvlBadge" id="myLvlBadge">⭐ Lv.1</div>
+                        <div style="flex:1;">
+                            <div class="myXpBarOuter"><div class="myXpBarInner" id="myXpBar" style="width:0%"></div></div>
+                            <div class="myXpLabel" id="myXpLabel">0/100 XP</div>
+                        </div>
+                    </div>
+                    <div id="myAccFollowRow">
+                        <div class="myAccFollowBtn" onclick="openMyFollowList('followers')"><div class="myAccFollowNum" id="myFollowersNum">0</div><div class="myAccFollowLabel">Followers</div></div>
+                        <div class="myAccFollowBtn" onclick="openMyFollowList('following')"><div class="myAccFollowNum" id="myFollowingNum">0</div><div class="myAccFollowLabel">Following</div></div>
+                    </div>
+                </div>
+                <button id="editPfpBtn" onclick="openPfpEdit()">🎭 Change Avatar</button>
+                <button id="logoutBtn" onclick="handleLogout()">🚪 Log Out</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PFP EDIT POPUP -->
+<div id="pfpEditPopup">
+    <div id="pfpEditBox">
+        <h3>Choose Your Avatar</h3>
+        <div id="pfpEditRow">
+            <span class="pfpEditOpt" onclick="selectEditPfp(this,'😎')">😎</span>
+            <span class="pfpEditOpt" onclick="selectEditPfp(this,'😈')">😈</span>
+            <span class="pfpEditOpt" onclick="selectEditPfp(this,'🤡')">🤡</span>
+            <span class="pfpEditOpt" onclick="selectEditPfp(this,'😝')">😝</span>
+            <span class="pfpEditOpt" onclick="selectEditPfp(this,'😔')">😔</span>
+        </div>
+        <button id="pfpEditSave" onclick="savePfpEdit()">✅ Save</button>
+        <button id="pfpEditCancel" onclick="closePfpEdit()">Cancel</button>
+    </div>
+</div>
+
+<!-- STORE -->
+<div id="storeScreen">
+    <div class="screenHeader" style="position:absolute;top:0;left:0;right:0;z-index:2;">
+        <button class="backBtn" id="storeBackBtn">← Back</button><h2>🛍️ Skin Store</h2>
+    </div>
+    <div id="storeBody">
+        <div id="storeCoinBal">🪙 <span id="storeCoinAmt">0</span> Coins</div>
+        <div id="upperSkinDisplay"></div>
+        <div class="skinRow" id="skinRow"></div>
+        <button id="confirmSkinBtn" class="locked">Select a skin</button>
+    </div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+<button id="pauseBtn">⏸ Pause</button>
+<div id="pauseOverlay">
+    <h2>⏸ PAUSED</h2>
+    <button id="pauseResumeBtn" class="pauseMenuBtn">▶ Resume</button>
+    <button id="pauseHomeBtn" class="pauseMenuBtn">🏠 Home</button>
+</div>
+<div id="gameOverOverlay">
+    <h2>GAME OVER</h2>
+    <div class="newRecord" id="newRecord">🏆 NEW RECORD!</div>
+    <div id="levelUpBanner">⭐ LEVEL UP!</div>
+    <div id="goBoardRow">
+        <div class="scoreBoard"><div class="label">Score</div><div class="val" id="finalScore">0</div></div>
+        <div class="scoreBoard"><div class="label">Best</div><div class="val" id="bestScore">0</div></div>
+        <div class="scoreBoard"><div class="label">🪙 Coins</div><div class="val" id="coinsEarned">+0</div></div>
+        <div class="scoreBoard"><div class="label">⚡ XP</div><div class="val" id="xpEarned">+0</div></div>
+    </div>
+    <button id="restartBtn" class="goBtn">🔄 Restart</button>
+    <button id="homeBtn" class="goBtn">🏠 Home</button>
+</div>
+<div id="madeBy">Made by TROLLHUNTER 🚀</div>
+
+<script>
+// ===== FIREBASE =====
+const firebaseConfig={apiKey:"AIzaSyAdsmbPO1WCs4JWsWmzi0yIJcGEz4JnDHk",authDomain:"fluppy-bird-1239f.firebaseapp.com",projectId:"fluppy-bird-1239f",storageBucket:"fluppy-bird-1239f.firebasestorage.app",messagingSenderId:"808783732091",appId:"1:808783732091:web:71af70c029cb5aaf0871de"};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth();
+const db=firebase.firestore();
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+let currentUser=null;
+let currentProfile={username:'Player',pfp:'😎',highScore:0,coins:0,xp:0,level:1,ownedSkins:[],followers:[],following:[]};
+
+// ===== LEVEL SYSTEM =====
+// XP per pipe crossed = 10, per coin = 2
+// Level up every 200 XP (level 1→2 needs 200, 2→3 needs 400, etc.)
+function xpForLevel(lvl){return lvl*200;}
+function calcLevel(xp){let lvl=1,total=0;while(xp>=total+xpForLevel(lvl)){total+=xpForLevel(lvl);lvl++;}return{level:lvl,currentXp:xp-total,neededXp:xpForLevel(lvl),totalXp:xp};}
+function lvlInfo(xp){const r=calcLevel(xp);return r;}
+
+function updateLevelUI(){
+    const info=lvlInfo(currentProfile.xp||0);
+    const pct=Math.round((info.currentXp/info.neededXp)*100);
+    // Account panel
+    document.getElementById('myLvlBadge').textContent=`⭐ Lv.${info.level}`;
+    document.getElementById('myXpBar').style.width=pct+'%';
+    document.getElementById('myXpLabel').textContent=`${info.currentXp}/${info.neededXp} XP`;
+}
+
+// ===== AUTH =====
+let authMode='signup',selectedPfpEmoji='😎';
+function switchAuthTab(mode){
+    authMode=mode;
+    document.getElementById('tabSignup').classList.toggle('active',mode==='signup');
+    document.getElementById('tabLogin').classList.toggle('active',mode==='login');
+    document.getElementById('pfpSection').style.display=mode==='signup'?'block':'none';
+    document.getElementById('authBtn').textContent=mode==='signup'?'🚀 Sign Up':'🔓 Login';
+    document.getElementById('authError').textContent='';
+}
+function selectPfp(el,emoji){document.querySelectorAll('.pfpOption').forEach(e=>e.classList.remove('selected'));el.classList.add('selected');selectedPfpEmoji=emoji;}
+async function handleAuth(){
+    const username=document.getElementById('usernameInput').value.trim();
+    const password=document.getElementById('passwordInput').value;
+    const errEl=document.getElementById('authError');errEl.textContent='';
+    if(!username||username.length<3){errEl.textContent='Username min 3 characters!';return;}
+    if(!password||password.length<6){errEl.textContent='Password min 6 characters!';return;}
+    document.getElementById('authLoading').style.display='block';document.getElementById('authBtn').disabled=true;
+    const fakeEmail=username.toLowerCase()+'@fluppybird.game';
+    try{
+        if(authMode==='signup'){
+            const ex=await db.collection('users').where('username','==',username).get();
+            if(!ex.empty){errEl.textContent='Username taken!';document.getElementById('authLoading').style.display='none';document.getElementById('authBtn').disabled=false;return;}
+            const cred=await auth.createUserWithEmailAndPassword(fakeEmail,password);
+            await db.collection('users').doc(cred.user.uid).set({username,pfp:selectedPfpEmoji,highScore:0,coins:0,xp:0,level:1,ownedSkins:[],followers:[],following:[],createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+        } else {
+            await auth.signInWithEmailAndPassword(fakeEmail,password);
+        }
+    }catch(e){
+        document.getElementById('authLoading').style.display='none';document.getElementById('authBtn').disabled=false;
+        if(e.code==='auth/email-already-in-use')errEl.textContent='Username taken!';
+        else if(e.code==='auth/user-not-found'||e.code==='auth/invalid-credential')errEl.textContent='Wrong username or password!';
+        else errEl.textContent='Error: '+e.message;
+    }
+}
+async function handleLogout(){
+    if(chatUnsubscribe){chatUnsubscribe();chatUnsubscribe=null;}
+    await auth.signOut();currentUser=null;
+    currentProfile={username:'Player',pfp:'😎',highScore:0,coins:0,xp:0,level:1,ownedSkins:[],followers:[],following:[]};
+    hideAllScreens();document.getElementById('authScreen').style.display='flex';
+    document.getElementById('usernameInput').value='';document.getElementById('passwordInput').value='';
+    document.getElementById('authError').textContent='';document.getElementById('authLoading').style.display='none';
+    document.getElementById('authBtn').disabled=false;switchAuthTab('signup');
+}
+
+auth.onAuthStateChanged(async user=>{
+    if(user){
+        currentUser=user;
+        const doc=await db.collection('users').doc(user.uid).get();
+        if(doc.exists){
+            const d=doc.data();
+            currentProfile={...d};
+            if(!currentProfile.coins)currentProfile.coins=0;
+            if(!currentProfile.xp)currentProfile.xp=0;
+            if(!currentProfile.level)currentProfile.level=1;
+            if(!currentProfile.ownedSkins)currentProfile.ownedSkins=[];
+            if(!currentProfile.followers)currentProfile.followers=[];
+            if(!currentProfile.following)currentProfile.following=[];
+            const localHS=parseInt(localStorage.getItem("fluppyHighScore"))||0;
+            if(localHS>currentProfile.highScore){currentProfile.highScore=localHS;await db.collection('users').doc(user.uid).update({highScore:localHS});}
+        }
+        document.getElementById('authScreen').style.display='none';
+        updateAccountUI();
+        loadDmBadge();
+        startLoading();
+    } else {
+        document.getElementById('authScreen').style.display='flex';
+        document.getElementById('loadingScreen').style.display='none';
+        document.getElementById('splashScreen').style.display='none';
+        hideAllScreens();
+    }
+});
+
+function updateAccountUI(){
+    document.getElementById('accountTabPfp').textContent=currentProfile.pfp||'😎';
+    document.getElementById('accountTabName').textContent=currentProfile.username||'Account';
+    document.getElementById('myAccPfp').textContent=currentProfile.pfp||'😎';
+    document.getElementById('myAccName').textContent=currentProfile.username||'Player';
+    document.getElementById('myAccSub').textContent=`Best: ${currentProfile.highScore||0} | 🪙 ${currentProfile.coins||0}`;
+    document.getElementById('myFollowersNum').textContent=(currentProfile.followers||[]).length;
+    document.getElementById('myFollowingNum').textContent=(currentProfile.following||[]).length;
+    document.getElementById('storeCoinAmt').textContent=currentProfile.coins||0;
+    updateLevelUI();
+}
+
+async function saveToFirebase(score,coins,xpGained){
+    if(!currentUser)return{leveledUp:false,newLevel:currentProfile.level};
+    const updates={};
+    if(score>currentProfile.highScore){currentProfile.highScore=score;localStorage.setItem("fluppyHighScore",score);updates.highScore=score;}
+    if(coins>0){currentProfile.coins=(currentProfile.coins||0)+coins;updates.coins=currentProfile.coins;}
+    let leveledUp=false,newLevel=currentProfile.level||1;
+    if(xpGained>0){
+        const oldInfo=lvlInfo(currentProfile.xp||0);
+        currentProfile.xp=(currentProfile.xp||0)+xpGained;
+        const newInfo=lvlInfo(currentProfile.xp);
+        updates.xp=currentProfile.xp;
+        if(newInfo.level>oldInfo.level){leveledUp=true;newLevel=newInfo.level;currentProfile.level=newLevel;updates.level=newLevel;}
+    }
+    if(Object.keys(updates).length>0){await db.collection('users').doc(currentUser.uid).update(updates);updateAccountUI();}
+    return{leveledUp,newLevel};
+}
+
+// ===== FOLLOW =====
+async function toggleFollow(targetUid){
+    if(!currentUser||targetUid===currentUser.uid)return false;
+    const myRef=db.collection('users').doc(currentUser.uid);
+    const theirRef=db.collection('users').doc(targetUid);
+    const isFollowing=(currentProfile.following||[]).includes(targetUid);
+    if(isFollowing){
+        currentProfile.following=currentProfile.following.filter(id=>id!==targetUid);
+        await myRef.update({following:firebase.firestore.FieldValue.arrayRemove(targetUid)});
+        await theirRef.update({followers:firebase.firestore.FieldValue.arrayRemove(currentUser.uid)});
+    } else {
+        if(!currentProfile.following)currentProfile.following=[];
+        currentProfile.following.push(targetUid);
+        await myRef.update({following:firebase.firestore.FieldValue.arrayUnion(targetUid)});
+        await theirRef.update({followers:firebase.firestore.FieldValue.arrayUnion(currentUser.uid)});
+    }
+    updateAccountUI();return !isFollowing;
+}
+
+// ===== PLAYERS LIST =====
+let allPlayersCache=[];
+async function loadPlayers(){
+    document.getElementById('playersList').innerHTML='<div class="listMsg">Loading... ⏳</div>';
+    try{
+        const snap=await db.collection('users').orderBy('highScore','desc').limit(50).get();
+        allPlayersCache=[];
+        snap.forEach(doc=>{if(doc.id!==currentUser?.uid)allPlayersCache.push({uid:doc.id,...doc.data()});});
+        renderPlayersList(allPlayersCache);
+    }catch(e){document.getElementById('playersList').innerHTML='<div class="listMsg">Failed to load 📶</div>';}
+}
+function renderPlayersList(players){
+    const el=document.getElementById('playersList');
+    if(!players.length){el.innerHTML='<div class="listMsg">No players found</div>';return;}
+    el.innerHTML='';
+    players.forEach(p=>{
+        const isFollowing=(currentProfile.following||[]).includes(p.uid);
+        const info=lvlInfo(p.xp||0);
+        const div=document.createElement('div');div.className='playerRow';
+        div.innerHTML=`
+            <div class="playerPfp">${p.pfp||'😎'}</div>
+            <div class="playerInfo">
+                <div class="playerName">${p.username||'Player'}</div>
+                <div class="playerSub">⭐ Lv.${info.level} | Best: ${p.highScore||0}</div>
+            </div>
+            <div class="playerBtns">
+                <button class="followBtn ${isFollowing?'following':'follow'}" data-uid="${p.uid}">${isFollowing?'✓':'+ Follow'}</button>
+                <button class="msgBtn" data-uid="${p.uid}" data-name="${p.username||'Player'}" data-pfp="${p.pfp||'😎'}">💬</button>
+            </div>
+        `;
+        div.querySelector('.playerInfo').onclick=()=>openProfile(p.uid);
+        div.querySelector('.playerPfp').onclick=()=>openProfile(p.uid);
+        div.querySelector('.followBtn').onclick=async e=>{
+            e.stopPropagation();const btn=e.currentTarget,uid=btn.dataset.uid;
+            const nowF=await toggleFollow(uid);
+            btn.textContent=nowF?'✓':'+ Follow';btn.className='followBtn '+(nowF?'following':'follow');
+        };
+        div.querySelector('.msgBtn').onclick=e=>{
+            e.stopPropagation();
+            openChat(p.uid,p.username||'Player',p.pfp||'😎');
+        };
+        el.appendChild(div);
+    });
+}
+function filterPlayers(q){
+    const query=q.toLowerCase().trim();
+    renderPlayersList(query?allPlayersCache.filter(p=>(p.username||'').toLowerCase().includes(query)):allPlayersCache);
+}
+
+// ===== PROFILE =====
+let currentProfileData=null,profileBackScreen='friendsScreen';
+async function openProfile(uid,backScreen){
+    profileBackScreen=backScreen||currentScreen;
+    document.getElementById('profileScreen').style.display='flex';
+    currentScreen='profileScreen';pushHistory('profileScreen');
+    document.getElementById('profilePfpBig').textContent='⏳';
+    document.getElementById('profileUsername').textContent='Loading...';
+    try{
+        const doc=await db.collection('users').doc(uid).get();
+        if(!doc.exists)return;
+        currentProfileData={uid,...doc.data()};
+        const d=currentProfileData;
+        const info=lvlInfo(d.xp||0);
+        const pct=Math.round((info.currentXp/info.neededXp)*100);
+        document.getElementById('profilePfpBig').textContent=d.pfp||'😎';
+        document.getElementById('profileUsername').textContent=d.username||'Player';
+        document.getElementById('profileHeaderName').textContent=d.username||'Profile';
+        document.getElementById('profileLvlBadge').textContent=`⭐ Level ${info.level}`;
+        document.getElementById('profileXpBar').style.width=pct+'%';
+        document.getElementById('profileXpLabel').textContent=`${info.currentXp}/${info.neededXp} XP`;
+        // BUG FIX: read followers/following arrays directly from fetched doc
+        const followers=Array.isArray(d.followers)?d.followers:[];
+        const following=Array.isArray(d.following)?d.following:[];
+        document.getElementById('profileFollowersNum').textContent=followers.length;
+        document.getElementById('profileFollowingNum').textContent=following.length;
+        document.getElementById('profileScoreNum').textContent=d.highScore||0;
+        document.getElementById('profileScoreVal').textContent=d.highScore||0;
+        document.getElementById('profileCoinsVal').textContent=d.coins||0;
+        // Birds
+        const birdsRow=document.getElementById('profileBirdsRow');birdsRow.innerHTML='';
+        const owned=d.ownedSkins||[];
+        [{name:'Default Bird'},...skins.filter(s=>s.price>0)].forEach(s=>{
+            if(s.name==='Default Bird'||owned.includes(s.name)){
+                const chip=document.createElement('div');chip.className='profileBirdChip';chip.textContent=s.name;birdsRow.appendChild(chip);
+            }
+        });
+        // Follow/Msg buttons
+        const fb=document.getElementById('profileFollowBtn');
+        const mb=document.getElementById('profileMsgBtn');
+        if(currentUser&&uid===currentUser.uid){
+            fb.textContent='✏️ My Profile';fb.className='itsme';fb.onclick=null;
+            mb.style.display='none';
+        } else {
+            mb.style.display='block';
+            mb.onclick=()=>openChat(uid,d.username||'Player',d.pfp||'😎');
+            const isFollowing=(currentProfile.following||[]).includes(uid);
+            fb.textContent=isFollowing?'✓ Following':'➕ Follow';fb.className=isFollowing?'following':'follow';
+            fb.onclick=async()=>{
+                const nowF=await toggleFollow(uid);
+                fb.textContent=nowF?'✓ Following':'➕ Follow';fb.className=nowF?'following':'follow';
+                const cur=parseInt(document.getElementById('profileFollowersNum').textContent)||0;
+                document.getElementById('profileFollowersNum').textContent=nowF?cur+1:Math.max(0,cur-1);
+            };
+        }
+    }catch(e){document.getElementById('profileUsername').textContent='Error loading';}
+}
+
+// ===== FOLLOW LIST =====
+let followListBackScreen='profileScreen';
+async function openFollowList(type){
+    if(!currentProfileData)return;
+    followListBackScreen='profileScreen';
+    document.getElementById('followListTitle').textContent=type==='followers'?'Followers':'Following';
+    document.getElementById('followListContent').innerHTML='<div class="listMsg">Loading... ⏳</div>';
+    document.getElementById('followListScreen').style.display='flex';
+    currentScreen='followListScreen';pushHistory('followListScreen');
+    // BUG FIX: re-fetch fresh data for correct followers list
+    const freshDoc=await db.collection('users').doc(currentProfileData.uid).get();
+    const freshData=freshDoc.exists?freshDoc.data():{};
+    const ids=type==='followers'?(Array.isArray(freshData.followers)?freshData.followers:[]):(Array.isArray(freshData.following)?freshData.following:[]);
+    await renderFollowList(ids);
+}
+async function openMyFollowList(type){
+    if(!currentUser)return;
+    const doc=await db.collection('users').doc(currentUser.uid).get();
+    if(doc.exists){const d=doc.data();currentProfile.followers=d.followers||[];currentProfile.following=d.following||[];}
+    currentProfileData={uid:currentUser.uid,...currentProfile};
+    followListBackScreen='settingsScreen';
+    document.getElementById('followListTitle').textContent=type==='followers'?'My Followers':'My Following';
+    document.getElementById('followListContent').innerHTML='<div class="listMsg">Loading... ⏳</div>';
+    document.getElementById('followListScreen').style.display='flex';
+    currentScreen='followListScreen';pushHistory('followListScreen');
+    const ids=type==='followers'?(currentProfile.followers||[]):(currentProfile.following||[]);
+    await renderFollowList(ids);
+}
+async function renderFollowList(ids){
+    const el=document.getElementById('followListContent');
+    if(!ids.length){el.innerHTML='<div class="listMsg">No one here yet 👀</div>';return;}
+    el.innerHTML='';
+    for(const uid of ids.slice(0,30)){
+        try{
+            const doc=await db.collection('users').doc(uid).get();
+            if(!doc.exists)continue;
+            const d=doc.data();
+            const isFollowing=(currentProfile.following||[]).includes(uid);
+            const isMe=currentUser&&uid===currentUser.uid;
+            const div=document.createElement('div');div.className='playerRow';
+            div.innerHTML=`
+                <div class="playerPfp">${d.pfp||'😎'}</div>
+                <div class="playerInfo"><div class="playerName">${d.username||'Player'}</div><div class="playerSub">Best: ${d.highScore||0}</div></div>
+                <div class="playerBtns">
+                    ${isMe?'':`<button class="followBtn ${isFollowing?'following':'follow'}" data-uid="${uid}">${isFollowing?'✓':'+ Follow'}</button>`}
+                    ${isMe?'':`<button class="msgBtn" data-uid="${uid}" data-name="${d.username||'Player'}" data-pfp="${d.pfp||'😎'}">💬</button>`}
+                </div>
+            `;
+            div.querySelector('.playerInfo').onclick=()=>openProfile(uid,'followListScreen');
+            div.querySelector('.playerPfp').onclick=()=>openProfile(uid,'followListScreen');
+            if(!isMe){
+                div.querySelector('.followBtn').onclick=async e=>{e.stopPropagation();const btn=e.currentTarget;const nowF=await toggleFollow(btn.dataset.uid);btn.textContent=nowF?'✓':'+ Follow';btn.className='followBtn '+(nowF?'following':'follow');};
+                div.querySelector('.msgBtn').onclick=e=>{e.stopPropagation();openChat(uid,d.username||'Player',d.pfp||'😎');};
+            }
+            el.appendChild(div);
+        }catch(e){}
+    }
+}
+
+// ===== DM SYSTEM =====
+let chatUnsubscribe=null;
+let currentChatUid=null,currentChatName='',currentChatPfp='';
+let dmBackScreen='dmListScreen';
+
+function getChatId(uid1,uid2){return uid1<uid2?`${uid1}_${uid2}`:`${uid2}_${uid1}`;}
+
+async function loadDmBadge(){
+    if(!currentUser)return;
+    try{
+        const snap=await db.collection('chats').where('participants','array-contains',currentUser.uid).get();
+        let unread=0;
+        snap.forEach(doc=>{
+            const d=doc.data();
+            if(d.unread&&d.unread[currentUser.uid]>0)unread+=d.unread[currentUser.uid];
+        });
+        const badge=document.getElementById('dmBadge');
+        if(unread>0){badge.style.display='flex';badge.textContent=unread>9?'9+':unread;}
+        else badge.style.display='none';
+    }catch(e){}
+}
+
+async function loadDmList(){
+    const el=document.getElementById('dmConvList');
+    el.innerHTML='<div class="listMsg">Loading... ⏳</div>';
+    try{
+        const snap=await db.collection('chats').where('participants','array-contains',currentUser.uid).orderBy('lastTime','desc').get();
+        if(snap.empty){el.innerHTML='<div class="listMsg">No messages yet 💬<br><span style="font-size:14px;color:rgba(255,255,255,0.3);">Go to Players to start a chat!</span></div>';return;}
+        el.innerHTML='';
+        const promises=[];
+        snap.forEach(doc=>{
+            const d=doc.data();
+            const otherUid=d.participants.find(id=>id!==currentUser.uid);
+            if(!otherUid)return;
+            promises.push(db.collection('users').doc(otherUid).get().then(uDoc=>{
+                if(!uDoc.exists)return;
+                const u=uDoc.data();
+                const hasUnread=d.unread&&d.unread[currentUser.uid]>0;
+                const div=document.createElement('div');div.className='dmConvRow';
+                const timeStr=d.lastTime?new Date(d.lastTime.toDate()).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+                div.innerHTML=`
+                    <div class="dmConvPfp">${u.pfp||'😎'}</div>
+                    <div class="dmConvInfo">
+                        <div class="dmConvName">${u.username||'Player'}</div>
+                        <div class="dmConvLast">${d.lastMsg||'Say hi! 👋'}</div>
+                    </div>
+                    <div class="dmConvTime">${timeStr}</div>
+                    <div class="dmUnreadDot" style="${hasUnread?'display:block;':''}"></div>
+                `;
+                div.onclick=()=>openChat(otherUid,u.username||'Player',u.pfp||'😎');
+                el.appendChild(div);
+            }));
+        });
+        await Promise.all(promises);
+        if(!el.children.length)el.innerHTML='<div class="listMsg">No messages yet 💬</div>';
+    }catch(e){el.innerHTML='<div class="listMsg">Failed to load 📶</div>';}
+}
+
+function openChat(uid,name,pfp){
+    if(chatUnsubscribe){chatUnsubscribe();chatUnsubscribe=null;}
+    currentChatUid=uid;currentChatName=name;currentChatPfp=pfp;
+    dmBackScreen=currentScreen;
+    document.getElementById('chatScreen').style.display='flex';
+    currentScreen='chatScreen';pushHistory('chatScreen');
+    document.getElementById('chatHeaderName').textContent=`${pfp} ${name}`;
+    document.getElementById('chatHeaderSub').textContent='tap to view profile';
+    document.getElementById('chatHeaderSub').onclick=()=>openProfile(uid,'chatScreen');
+    document.getElementById('chatMessages').innerHTML='';
+    document.getElementById('chatInput').value='';
+
+    const chatId=getChatId(currentUser.uid,uid);
+    // Real-time listener
+    chatUnsubscribe=db.collection('chats').doc(chatId).collection('messages')
+        .orderBy('timestamp','asc').limit(100)
+        .onSnapshot(snap=>{
+            const msgs=document.getElementById('chatMessages');
+            msgs.innerHTML='';
+            snap.forEach(doc=>{
+                const d=doc.data();
+                const isMine=d.senderId===currentUser.uid;
+                const wrap=document.createElement('div');wrap.className='msgWrap '+(isMine?'mine':'theirs');
+                const time=d.timestamp?new Date(d.timestamp.toDate()).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+                wrap.innerHTML=`<div class="msgBubble ${isMine?'mine':'theirs'}">${escapeHtml(d.text)}<div class="msgTime">${time}</div></div>`;
+                msgs.appendChild(wrap);
+            });
+            msgs.scrollTop=msgs.scrollHeight;
+        });
+
+    // Mark as read
+    const chatRef=db.collection('chats').doc(chatId);
+    chatRef.get().then(doc=>{
+        if(doc.exists){
+            const upd={};upd[`unread.${currentUser.uid}`]=0;
+            chatRef.update(upd).catch(()=>{});
+        }
+    });
+    loadDmBadge();
+}
+
+async function sendMessage(){
+    const input=document.getElementById('chatInput');
+    const text=input.value.trim();
+    if(!text||!currentChatUid)return;
+    input.value='';
+    const chatId=getChatId(currentUser.uid,currentChatUid);
+    const chatRef=db.collection('chats').doc(chatId);
+    const msgRef=chatRef.collection('messages');
+    const ts=firebase.firestore.FieldValue.serverTimestamp();
+    // Add message
+    await msgRef.add({senderId:currentUser.uid,text,timestamp:ts});
+    // Update chat meta
+    const upd={lastMsg:text,lastTime:ts,participants:[currentUser.uid,currentChatUid]};
+    upd[`unread.${currentChatUid}`]=firebase.firestore.FieldValue.increment(1);
+    upd[`unread.${currentUser.uid}`]=0;
+    await chatRef.set(upd,{merge:true});
+}
+
+function escapeHtml(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+document.getElementById('chatSendBtn').onclick=sendMessage;
+document.getElementById('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
+
+// ===== PFP EDIT =====
+let editPfpSelected='😎';
+function openPfpEdit(){editPfpSelected=currentProfile.pfp||'😎';document.querySelectorAll('.pfpEditOpt').forEach(e=>e.classList.toggle('selected',e.textContent===editPfpSelected));document.getElementById('pfpEditPopup').style.display='flex';}
+function selectEditPfp(el,emoji){document.querySelectorAll('.pfpEditOpt').forEach(e=>e.classList.remove('selected'));el.classList.add('selected');editPfpSelected=emoji;}
+async function savePfpEdit(){currentProfile.pfp=editPfpSelected;await db.collection('users').doc(currentUser.uid).update({pfp:editPfpSelected});closePfpEdit();updateAccountUI();}
+function closePfpEdit(){document.getElementById('pfpEditPopup').style.display='none';}
+
+// ===== SKINS =====
+const skins=[
+    {name:"Default Bird",file:"Default_bird.png",price:0,pipeColor:"#00c853",groundColor:"#5D4037"},
+    {name:"Mango Bird",file:"Mango_bird.png",price:50,pipeColor:"#FFA500",groundColor:"#BF6F00"},
+    {name:"Happy Parrot",file:"happy_perrot.png",price:100,pipeColor:"#ff4081",groundColor:"#880040"},
+    {name:"Angry Bird",file:"angey_bird.png",price:150,pipeColor:"#ff1744",groundColor:"#7f0000"},
+    {name:"Crow",file:"crow.png",price:200,pipeColor:"#424242",groundColor:"#212121"}
+];
+const birdImages={};
+function getSkinOwned(n){if(n==="Default Bird")return true;return(currentProfile.ownedSkins||[]).includes(n);}
+async function buySkin(name,price){
+    if(currentProfile.coins<price)return false;
+    currentProfile.coins-=price;if(!currentProfile.ownedSkins)currentProfile.ownedSkins=[];
+    currentProfile.ownedSkins.push(name);
+    await db.collection('users').doc(currentUser.uid).update({coins:currentProfile.coins,ownedSkins:currentProfile.ownedSkins});
+    updateAccountUI();return true;
+}
+
+// ===== AUDIO =====
+const audioFiles={countdown:'countdown.mp3',go:'Go.mp3',fly:'bird_fly.mp3',button:'bottons.mp3',score:'coine.mp3',gameover:'game_over.mp3',bgmusic:'game_bg.mp3'};
+const audioBuffers={};let bgAudio=null;
+const AudioCtx=window.AudioContext||window.webkitAudioContext;let actx=null;
+function ensureAudioCtx(){if(!actx)actx=new AudioCtx();if(actx.state==='suspended')actx.resume();}
+function playSound(name){
+    if(!soundSettings.all||!soundSettings[name])return;ensureAudioCtx();
+    if(name==='bgmusic'){if(bgAudio&&!bgAudio.paused)return;if(bgAudio){bgAudio.currentTime=0;bgAudio.play().catch(()=>{});}return;}
+    const buf=audioBuffers[name];if(!buf)return;
+    const src=actx.createBufferSource();src.buffer=buf;src.connect(actx.destination);src.start(0);
+}
+function pauseBG(){if(bgAudio)bgAudio.pause();}
+function resumeBG(){if(bgAudio&&soundSettings.bgmusic&&soundSettings.all)bgAudio.play().catch(()=>{});}
+let soundSettings={all:true,bgmusic:true,score:true,fly:true,countdown:true,go:true,button:true,gameover:true};
+function syncToggles(){Object.keys(soundSettings).forEach(k=>{const el=document.getElementById('tog_'+k);if(el)el.classList.toggle('on',soundSettings[k]);});}
+
+// ===== LOADING =====
+const imageFiles=['splash_screen.png',...skins.map(s=>s.file)];
+const soundKeys=Object.keys(audioFiles);
+const TOTAL=imageFiles.length+soundKeys.length;
+let loaded=0;
+function cleanName(f){return f.replace(/\.[^.]+$/,'').replace(/_/g,' ');}
+function updateProgress(f){
+    loaded++;const pct=Math.round((loaded/TOTAL)*100);
+    document.getElementById('loadBar').style.width=pct+'%';document.getElementById('loadPercent').textContent=pct+'%';
+    document.getElementById('loadStatus').textContent='Loading: '+cleanName(f);
+    const idx=Math.min(Math.floor((loaded/TOTAL)*5),4);
+    for(let i=0;i<=idx;i++){const ic=document.getElementById('lico_'+i);if(ic)ic.classList.add('done');}
+    if(loaded>=TOTAL)onAllLoaded();
+}
+function onAllLoaded(){
+    setTimeout(()=>{const ls=document.getElementById('loadingScreen');ls.style.transition='opacity 0.6s';ls.style.opacity='0';setTimeout(()=>{ls.style.display='none';document.getElementById('splashScreen').style.display='flex';},600);},400);
+}
+async function startLoading(){
+    loaded=0;document.getElementById('loadBar').style.width='0%';document.getElementById('loadPercent').textContent='0%';
+    document.getElementById('loadingScreen').style.display='flex';document.getElementById('loadingScreen').style.opacity='1';
+    if(currentUser){
+        const doc=await db.collection('users').doc(currentUser.uid).get();
+        if(doc.exists){const d=doc.data();['ownedSkins','followers','following'].forEach(k=>{if(d[k])currentProfile[k]=d[k];});if(d.coins!==undefined)currentProfile.coins=d.coins;if(d.xp!==undefined)currentProfile.xp=d.xp;if(d.level!==undefined)currentProfile.level=d.level;}
+    }
+    const imgP=imageFiles.map(file=>new Promise(res=>{
+        const img=new Image();img.onload=()=>{updateProgress(file);res();};img.onerror=()=>{updateProgress(file);res();};img.src=file;
+        const skin=skins.find(s=>s.file===file);if(skin)birdImages[skin.name]=img;
+    }));
+    const sndP=soundKeys.map(key=>new Promise(res=>{
+        const file=audioFiles[key];
+        if(key==='bgmusic'){
+            bgAudio=new Audio(file);bgAudio.loop=true;bgAudio.preload='auto';
+            const done=()=>{updateProgress(file);res();};
+            bgAudio.addEventListener('canplaythrough',done,{once:true});bgAudio.addEventListener('error',done,{once:true});
+            setTimeout(()=>{updateProgress(file);res();},3000);bgAudio.load();
+        } else {
+            fetch(file).then(r=>r.arrayBuffer()).then(buf=>{
+                const tmp=new (window.AudioContext||window.webkitAudioContext)();
+                return tmp.decodeAudioData(buf).then(d=>{audioBuffers[key]=d;tmp.close();updateProgress(file);res();});
+            }).catch(()=>{updateProgress(file);res();});
+        }
+    }));
+    await Promise.all([...imgP,...sndP]);
+}
+
+// ===== CANVAS & GAME =====
+const canvas=document.getElementById("gameCanvas");
+const ctx=canvas.getContext("2d");
+function resizeCanvas(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+resizeCanvas();window.addEventListener("resize",resizeCanvas);
+const gapSizes={"Very Easy":310,"Normal":255,"Hard":195};
+const baseSpeeds={"Very Easy":2.0,"Normal":2.5,"Hard":3.0};
+
+let gs={bird:{x:0,y:0,w:62,h:62,vy:0,rot:0},gravity:0.38,pipes:[],score:0,pipesCrossed:0,distTraveled:0,lastPipeDist:0,sessionCoins:0,sessionXp:0,highScore:0,gameOver:false,gameStarted:false,paused:false,pipeSpeed:2.0,maxPipeSpeed:5.5,nextPipeDist:430,pipeSpacing:430,difficulty:"Very Easy",animId:null};
+let selectedSkin=skins[0],previewSkin=skins[0];
+
+function initGameSettings(){
+    gs.highScore=currentProfile.highScore||0;gs.difficulty="Very Easy";gs.pipeSpeed=2.0;
+    soundSettings={all:true,bgmusic:true,score:true,fly:true,countdown:true,go:true,button:true,gameover:true};syncToggles();
+    document.querySelectorAll('.diffOption').forEach(opt=>{const v=opt.querySelector('input').value,sel=(v==="Very Easy");opt.classList.toggle('selected',sel);if(sel){opt.querySelector('input').checked=true;opt.querySelector('.diffDot').style.background='#4CAF50';}else opt.querySelector('.diffDot').style.background='';});
+    const saved=localStorage.getItem("selectedSkin6")||"Default Bird";
+    selectedSkin=skins.find(s=>s.name===saved&&getSkinOwned(s.name))||skins[0];previewSkin=selectedSkin;
+}
+function initGame(){
+    gs.bird={x:110,y:canvas.height/2-30,w:62,h:62,vy:0,rot:0};
+    gs.pipes=[];gs.score=0;gs.pipesCrossed=0;gs.distTraveled=0;gs.lastPipeDist=0;gs.sessionCoins=0;gs.sessionXp=0;
+    gs.gameOver=false;gs.paused=false;gs.gameStarted=false;
+    gs.pipeSpeed=baseSpeeds[gs.difficulty];gs.nextPipeDist=gs.pipeSpacing;
+}
+function createPipe(){
+    const gap=gapSizes[gs.difficulty],minH=90,maxH=canvas.height-gap-minH-75;
+    const topH=Math.random()*(maxH-minH)+minH;
+    gs.pipes.push({x:canvas.width,w:72,topH,gap,botH:canvas.height-topH-gap-75,scored:false,coin:{y:topH+gap/2,collected:false}});
+}
+function drawBG(){
+    const phase=Math.floor(gs.pipesCrossed/5)%2;
+    if(phase===0){
+        const sky=ctx.createLinearGradient(0,0,0,canvas.height*0.8);sky.addColorStop(0,'#5bc8f5');sky.addColorStop(1,'#c8eeff');ctx.fillStyle=sky;ctx.fillRect(0,0,canvas.width,canvas.height);
+        const sgx=canvas.width-110,sgy=88;const grd=ctx.createRadialGradient(sgx,sgy,10,sgx,sgy,75);grd.addColorStop(0,'rgba(255,240,100,0.45)');grd.addColorStop(1,'rgba(255,240,100,0)');ctx.fillStyle=grd;ctx.fillRect(sgx-75,sgy-75,150,150);
+        ctx.fillStyle='#FFD700';ctx.beginPath();ctx.arc(sgx,sgy,40,0,Math.PI*2);ctx.fill();
+        function cloud(cx,cy,s){ctx.fillStyle='rgba(255,255,255,0.82)';ctx.beginPath();ctx.arc(cx,cy,30*s,0,Math.PI*2);ctx.arc(cx+32*s,cy-10*s,24*s,0,Math.PI*2);ctx.arc(cx+58*s,cy,26*s,0,Math.PI*2);ctx.fill();}
+        cloud(90,75,1);cloud(280,55,1.2);cloud(520,90,0.9);cloud(750,65,1.1);
+    } else {
+        const sky=ctx.createLinearGradient(0,0,0,canvas.height*0.7);sky.addColorStop(0,'#060d1f');sky.addColorStop(1,'#0d1b35');ctx.fillStyle=sky;ctx.fillRect(0,0,canvas.width,canvas.height);
+        for(let i=0;i<70;i++){const sx=(i*137+23)%canvas.width,sy=(i*79+11)%(canvas.height*0.6),ss=(i%4===0)?1.8:0.9,op=0.4+0.5*Math.sin(i*0.7+(Date.now()/2000));ctx.globalAlpha=op;ctx.fillStyle='#fff';ctx.fillRect(sx,sy,ss,ss);}
+        ctx.globalAlpha=1;const mx=canvas.width-110,my=88;const mg=ctx.createRadialGradient(mx,my,8,mx,my,60);mg.addColorStop(0,'rgba(255,255,200,0.22)');mg.addColorStop(1,'rgba(255,255,200,0)');ctx.fillStyle=mg;ctx.fillRect(mx-60,my-60,120,120);
+        ctx.fillStyle='#fffff0';ctx.beginPath();ctx.arc(mx,my,35,0,Math.PI*2);ctx.fill();ctx.fillStyle='#0a1428';ctx.beginPath();ctx.arc(mx+12,my-8,27,0,Math.PI*2);ctx.fill();
+    }
+}
+function drawPipe(p){
+    ctx.fillStyle=selectedSkin.pipeColor;
+    ctx.fillRect(p.x,0,p.w,p.topH);ctx.fillRect(p.x,canvas.height-p.botH-75,p.w,p.botH);
+    ctx.fillRect(p.x-7,p.topH-24,p.w+14,24);ctx.fillRect(p.x-7,canvas.height-p.botH-75,p.w+14,24);
+    ctx.fillStyle='rgba(255,255,255,0.18)';ctx.fillRect(p.x+6,0,11,p.topH-24);ctx.fillRect(p.x+6,canvas.height-p.botH-75+24,11,p.botH-24);
+    ctx.fillStyle='rgba(0,0,0,0.15)';ctx.fillRect(p.x+p.w-10,0,10,p.topH);ctx.fillRect(p.x+p.w-10,canvas.height-p.botH-75,10,p.botH);
+    if(p.coin&&!p.coin.collected){
+        const cx=p.x+p.w/2,cy=p.coin.y,r=14;
+        const cg=ctx.createRadialGradient(cx,cy,2,cx,cy,r+6);cg.addColorStop(0,'rgba(255,215,0,0.4)');cg.addColorStop(1,'rgba(255,215,0,0)');ctx.fillStyle=cg;ctx.beginPath();ctx.arc(cx,cy,r+6,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#FFD700';ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#f9a825';ctx.beginPath();ctx.arc(cx,cy,r*0.65,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#FFD700';ctx.font=`bold ${r}px Fredoka One`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('$',cx,cy+1);
+    }
+}
+function drawBird(){
+    ctx.save();ctx.translate(gs.bird.x+gs.bird.w/2,gs.bird.y+gs.bird.h/2);ctx.rotate(gs.bird.rot*Math.PI/180);
+    const img=birdImages[selectedSkin.name];
+    if(img&&img.complete&&img.naturalWidth>0){ctx.drawImage(img,-gs.bird.w/2,-gs.bird.h/2,gs.bird.w,gs.bird.h);}
+    else{ctx.fillStyle='#FFD700';ctx.beginPath();ctx.arc(0,0,gs.bird.w/2,0,Math.PI*2);ctx.fill();}
+    ctx.restore();
+}
+function drawGround(){
+    ctx.fillStyle=selectedSkin.groundColor;ctx.fillRect(0,canvas.height-75,canvas.width,75);
+    ctx.fillStyle='rgba(0,0,0,0.1)';for(let i=0;i<canvas.width;i+=40)ctx.fillRect(i,canvas.height-70,20,2);
+    ctx.fillStyle='rgba(255,255,255,0.2)';ctx.fillRect(0,canvas.height-75,canvas.width,5);
+}
+function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();}
+function drawHUD(){
+    ctx.save();ctx.fillStyle='rgba(0,0,0,0.45)';roundRect(ctx,14,14,200,90,12);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.12)';ctx.lineWidth=1.5;roundRect(ctx,14,14,200,90,12);ctx.stroke();
+    ctx.font="bold 28px 'Fredoka One',cursive";ctx.textAlign='left';
+    ctx.fillStyle='rgba(255,255,255,0.95)';ctx.fillText(`Score: ${gs.score}`,28,48);
+    ctx.fillStyle='rgba(255,215,0,0.95)';ctx.fillText(`🪙 ${gs.sessionCoins}`,28,84);ctx.restore();
+}
+
+function gameLoop(){
+    gs.animId=requestAnimationFrame(gameLoop);
+    if(!gs.gameStarted||gs.gameOver||gs.paused)return;
+    gs.bird.vy+=gs.gravity;gs.bird.y+=gs.bird.vy;gs.bird.rot=Math.min(gs.bird.vy*3.2,32);
+    gs.distTraveled+=gs.pipeSpeed;
+    const progress=Math.min((gs.distTraveled-gs.lastPipeDist)/gs.pipeSpacing,0.99);
+    gs.score=Math.floor(gs.pipesCrossed*100+progress*100);
+    ctx.clearRect(0,0,canvas.width,canvas.height);drawBG();
+    gs.nextPipeDist-=gs.pipeSpeed;if(gs.nextPipeDist<=0){createPipe();gs.nextPipeDist=gs.pipeSpacing;}
+    for(let i=gs.pipes.length-1;i>=0;i--){
+        const p=gs.pipes[i];p.x-=gs.pipeSpeed;drawPipe(p);
+        const bx=gs.bird.x+10,by=gs.bird.y+10,bw=gs.bird.w-20,bh=gs.bird.h-20;
+        if(bx<p.x+p.w&&bx+bw>p.x){if(by<p.topH||by+bh>canvas.height-p.botH-75){endGame();return;}}
+        if(p.coin&&!p.coin.collected){const cx=p.x+p.w/2,cy=p.coin.y,r=14;const dx=(gs.bird.x+gs.bird.w/2)-cx,dy=(gs.bird.y+gs.bird.h/2)-cy;if(Math.sqrt(dx*dx+dy*dy)<r+gs.bird.w/2-10){p.coin.collected=true;gs.sessionCoins++;gs.sessionXp+=2;}}
+        if(!p.scored&&p.x+p.w<gs.bird.x){gs.pipesCrossed++;gs.lastPipeDist=gs.distTraveled;p.scored=true;playSound('score');gs.pipeSpeed=Math.min(gs.pipeSpeed+0.05,gs.maxPipeSpeed);gs.sessionXp+=10;}
+        if(p.x+p.w<-90)gs.pipes.splice(i,1);
+    }
+    drawGround();if(gs.bird.y+gs.bird.h>canvas.height-75||gs.bird.y<0){endGame();return;}
+    drawBird();drawHUD();
+}
+function jump(){if(gs.gameStarted&&!gs.gameOver&&!gs.paused){gs.bird.vy=-7.5;gs.bird.rot=-25;playSound('fly');}}
+
+function runCountdown(onDone){
+    const cdDiv=document.createElement("div");cdDiv.id="countdownDiv";
+    cdDiv.style.cssText=`position:absolute;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);font-family:'Fredoka One',cursive;font-size:clamp(90px,20vw,150px);color:#FFD700;text-shadow:4px 4px 0 #000;letter-spacing:4px;transition:transform 0.12s;`;
+    document.body.appendChild(cdDiv);
+    const steps=["3","2","1","GO!"];let idx=0;
+    function tick(){cdDiv.textContent=steps[idx];cdDiv.style.transform="scale(1.25)";setTimeout(()=>cdDiv.style.transform="scale(1)",140);if(idx<3)playSound('countdown');else playSound('go');idx++;if(idx<steps.length)setTimeout(tick,750);else setTimeout(()=>{if(document.body.contains(cdDiv))document.body.removeChild(cdDiv);onDone();},650);}
+    tick();
+}
+
+const allScreens=['titleScreen','settingsScreen','storeScreen','leaderboardScreen','friendsScreen','profileScreen','followListScreen','dmListScreen','chatScreen'];
+function hideAllScreens(){allScreens.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none";});}
+function showScreen(id){
+    if(chatUnsubscribe&&id!=='chatScreen'){chatUnsubscribe();chatUnsubscribe=null;}
+    hideAllScreens();const el=document.getElementById(id);if(el)el.style.display=(id==='settingsScreen')?"block":"flex";
+    currentScreen=id;pushHistory(id);
+}
+
+function startGame(){
+    ensureAudioCtx();playSound('button');if(gs.animId)cancelAnimationFrame(gs.animId);
+    hideAllScreens();document.getElementById('gameOverOverlay').style.display="none";document.getElementById('pauseOverlay').style.display="none";document.getElementById('pauseBtn').style.display="none";
+    initGame();ctx.clearRect(0,0,canvas.width,canvas.height);drawBG();drawGround();drawBird();
+    runCountdown(()=>{document.getElementById('pauseBtn').style.display="block";gs.gameStarted=true;gameLoop();});
+}
+
+async function endGame(){
+    playSound('gameover');gs.gameOver=true;if(gs.animId)cancelAnimationFrame(gs.animId);
+    document.getElementById('pauseBtn').style.display="none";
+    const{leveledUp,newLevel}=await saveToFirebase(gs.score,gs.sessionCoins,gs.sessionXp);
+    let isNew=gs.score>=(parseInt(localStorage.getItem("fluppyHighScore"))||0)&&gs.sessionXp>0;
+    if(gs.score>(currentProfile.highScore||0))isNew=true;
+    document.getElementById('finalScore').textContent=gs.score;
+    document.getElementById('bestScore').textContent=gs.highScore;
+    document.getElementById('coinsEarned').textContent='+'+gs.sessionCoins;
+    document.getElementById('xpEarned').textContent='+'+gs.sessionXp;
+    document.getElementById('newRecord').style.display=isNew?"block":"none";
+    const lvlBanner=document.getElementById('levelUpBanner');
+    if(leveledUp){lvlBanner.textContent=`⭐ LEVEL UP! Now Level ${newLevel}!`;lvlBanner.style.display='block';}
+    else lvlBanner.style.display='none';
+    const gov=document.getElementById('gameOverOverlay');gov.style.display="flex";gov.style.opacity="0";setTimeout(()=>gov.style.opacity="1",30);
+}
+
+async function loadLeaderboard(){
+    document.getElementById('lbList').innerHTML='<div class="listMsg">Loading... ⏳</div>';document.getElementById('lbMyScore').innerHTML='';
+    try{
+        const snap=await db.collection('users').orderBy('highScore','desc').limit(20).get();
+        document.getElementById('lbList').innerHTML='';let myRank=-1,rank=0;
+        snap.forEach(doc=>{
+            rank++;const d=doc.data();const isMe=(currentUser&&doc.id===currentUser.uid);if(isMe)myRank=rank;
+            const cls=rank===1?'lbEntry top1':rank===2?'lbEntry top2':rank===3?'lbEntry top3':'lbEntry';
+            const medal=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank;
+            const info=lvlInfo(d.xp||0);
+            const div=document.createElement('div');div.className=cls+(isMe?' lbEntry--me':'');if(isMe)div.style.border='2px solid rgba(255,215,0,0.6)';
+            div.innerHTML=`<div class="lbRankNum">${medal}</div><div class="lbEmoji">${d.pfp||'😎'}</div><div class="lbEntryName">${d.username||'Player'}${isMe?' (You)':''}<div class="lbLvl">⭐ Lv.${info.level}</div></div><div class="lbEntryScore">${d.highScore||0}</div>`;
+            div.onclick=()=>{if(!isMe)openProfile(doc.id,'leaderboardScreen');};
+            document.getElementById('lbList').appendChild(div);
+        });
+        if(currentUser)document.getElementById('lbMyScore').innerHTML=`<div class="lbPfp">${currentProfile.pfp||'😎'}</div><div class="lbInfo"><div class="lbName">${currentProfile.username||'Player'}</div><div class="lbScore">Best: ${currentProfile.highScore||0} | 🪙 ${currentProfile.coins||0}</div></div><div class="lbRank">${myRank>0?'#'+myRank:'—'}</div>`;
+        if(snap.empty)document.getElementById('lbList').innerHTML='<div class="listMsg">No scores yet! 🐦</div>';
+    }catch(e){document.getElementById('lbList').innerHTML='<div class="listMsg">Failed to load 📶</div>';}
+}
+
+function renderSkins(){
+    document.getElementById('storeCoinAmt').textContent=currentProfile.coins||0;
+    const row=document.getElementById('skinRow'),disp=document.getElementById('upperSkinDisplay');
+    row.innerHTML="";disp.innerHTML="";
+    const img=document.createElement("img");img.src=previewSkin.file;img.onerror=()=>img.style.display='none';
+    const tit=document.createElement("div");tit.className="skinTitle";tit.textContent=previewSkin.name;
+    disp.appendChild(img);disp.appendChild(tit);
+    skins.forEach(s=>{
+        const owned=getSkinOwned(s.name);
+        const box=document.createElement("div");box.className="skinBox"+(s.name===previewSkin.name?" selected":"")+(owned?" owned":"");
+        const si=document.createElement("img");si.src=s.file;si.onerror=()=>si.style.display='none';box.appendChild(si);
+        const sn=document.createElement("div");sn.className="sName";sn.textContent=s.name;box.appendChild(sn);
+        const sp=document.createElement("div");sp.className="sPrice";sp.textContent=owned?"Owned ✅":(s.price===0?"Free":"🪙 "+s.price);box.appendChild(sp);
+        if(!owned){const lo=document.createElement("div");lo.className="lockOverlay";lo.innerHTML=`<span>🔒</span><small>🪙 ${s.price}</small>`;box.appendChild(lo);}
+        box.onclick=()=>{playSound('button');previewSkin=s;renderSkins();};
+        row.appendChild(box);
+    });
+    const cb=document.getElementById('confirmSkinBtn');const owned=getSkinOwned(previewSkin.name);
+    if(owned){cb.textContent='✅ Equip Skin';cb.className='unlocked';}
+    else if(previewSkin.price<=(currentProfile.coins||0)){cb.textContent=`🪙 Buy for ${previewSkin.price}`;cb.className='buy';}
+    else{cb.textContent=`Need 🪙 ${previewSkin.price}`;cb.className='locked';}
+}
+document.getElementById('confirmSkinBtn').onclick=async()=>{
+    const owned=getSkinOwned(previewSkin.name);
+    if(owned){playSound('button');selectedSkin=previewSkin;localStorage.setItem("selectedSkin6",selectedSkin.name);showScreen('titleScreen');}
+    else if(previewSkin.price<=(currentProfile.coins||0)){playSound('button');const ok=await buySkin(previewSkin.name,previewSkin.price);if(ok){selectedSkin=previewSkin;localStorage.setItem("selectedSkin6",selectedSkin.name);renderSkins();}}
+};
+
+function isUI(t){return t.closest('button')||t.closest('textarea')||['titleScreen','settingsScreen','storeScreen','leaderboardScreen','friendsScreen','profileScreen','followListScreen','dmListScreen','chatScreen','pauseOverlay','gameOverOverlay','splashScreen','loadingScreen','authScreen','pfpEditPopup','countdownDiv'].some(id=>t.closest('#'+id));}
+document.addEventListener("click",e=>{if(!isUI(e.target))jump();});
+document.addEventListener("touchstart",e=>{if(!isUI(e.target)){e.preventDefault();jump();}},{passive:false});
+document.addEventListener("keydown",e=>{if(e.code==="Space"&&currentScreen==='game'){e.preventDefault();jump();}});
+
+// ===== BUTTONS =====
+document.getElementById('okBtn').onclick=()=>{
+    ensureAudioCtx();playSound('button');initGameSettings();
+    const s=document.getElementById('splashScreen');s.style.transition='opacity 0.5s';s.style.opacity="0";
+    setTimeout(()=>{s.style.display="none";showScreen('titleScreen');if(soundSettings.bgmusic&&soundSettings.all&&bgAudio)bgAudio.play().catch(()=>{});},500);
+};
+document.getElementById('playBtn').onclick=()=>startGame();
+document.getElementById('settingsBtnMain').onclick=()=>{playSound('button');showScreen('settingsScreen');};
+document.getElementById('storeBtn').onclick=()=>{playSound('button');previewSkin=selectedSkin;showScreen('storeScreen');renderSkins();};
+document.getElementById('leaderboardBtn').onclick=()=>{playSound('button');showScreen('leaderboardScreen');loadLeaderboard();};
+document.getElementById('friendsBtn').onclick=()=>{playSound('button');showScreen('friendsScreen');loadPlayers();};
+document.getElementById('dmTitleBtn').onclick=()=>{playSound('button');showScreen('dmListScreen');loadDmList();};
+document.getElementById('lbBackBtn').onclick=()=>{playSound('button');showScreen('titleScreen');};
+document.getElementById('friendsBackBtn').onclick=()=>{playSound('button');showScreen('titleScreen');};
+document.getElementById('dmListBackBtn').onclick=()=>{playSound('button');showScreen('titleScreen');};
+document.getElementById('chatBackBtn').onclick=()=>{
+    if(chatUnsubscribe){chatUnsubscribe();chatUnsubscribe=null;}
+    playSound('button');hideAllScreens();
+    const el=document.getElementById(dmBackScreen||'dmListScreen');if(el)el.style.display='flex';
+    currentScreen=dmBackScreen||'dmListScreen';pushHistory(currentScreen);
+    loadDmBadge();
+};
+document.getElementById('profileBackBtn').onclick=()=>{playSound('button');hideAllScreens();const el=document.getElementById(profileBackScreen||'titleScreen');if(el)el.style.display=(profileBackScreen==='settingsScreen')?'block':'flex';currentScreen=profileBackScreen||'titleScreen';pushHistory(currentScreen);};
+document.getElementById('followListBackBtn').onclick=()=>{playSound('button');hideAllScreens();const el=document.getElementById(followListBackScreen||'profileScreen');if(el)el.style.display='flex';currentScreen=followListBackScreen||'profileScreen';pushHistory(currentScreen);};
+document.getElementById('settingsBackBtn').onclick=()=>{playSound('button');showScreen('titleScreen');};
+document.getElementById('storeBackBtn').onclick=()=>{playSound('button');previewSkin=selectedSkin;showScreen('titleScreen');};
+
+document.querySelectorAll('.settingsTab').forEach(tab=>{
+    tab.onclick=()=>{
+        playSound('button');
+        document.querySelectorAll('.settingsTab').forEach(t=>t.classList.remove('active'));
+        document.querySelectorAll('.settingsPanel').forEach(p=>p.classList.remove('active'));
+        document.getElementById('accountTab').classList.remove('active');
+        tab.classList.add('active');document.getElementById(tab.dataset.tab+'Panel').classList.add('active');
+    };
+});
+document.getElementById('accountTab').onclick=()=>{
+    playSound('button');
+    document.querySelectorAll('.settingsTab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.settingsPanel').forEach(p=>p.classList.remove('active'));
+    document.getElementById('accountTab').classList.add('active');document.getElementById('accountPanel').classList.add('active');updateAccountUI();
+};
+document.querySelectorAll('.diffOption').forEach(opt=>{
+    opt.onclick=()=>{
+        playSound('button');const v=opt.querySelector('input').value;
+        document.querySelectorAll('.diffOption').forEach(o=>{o.classList.remove('selected');o.querySelector('.diffDot').style.background='';});
+        opt.classList.add('selected');opt.querySelector('input').checked=true;opt.querySelector('.diffDot').style.background='#4CAF50';
+        gs.difficulty=v;gs.pipeSpeed=baseSpeeds[v];
+    };
+});
+document.querySelectorAll('.toggle').forEach(tog=>{
+    tog.onclick=()=>{
+        const k=tog.id.replace('tog_','');soundSettings[k]=!soundSettings[k];tog.classList.toggle('on',soundSettings[k]);
+        if(k==='all'){const v=soundSettings.all;Object.keys(soundSettings).forEach(key=>soundSettings[key]=v);syncToggles();if(!v)pauseBG();else resumeBG();}
+        else if(k==='bgmusic'){if(soundSettings.bgmusic&&soundSettings.all)resumeBG();else pauseBG();}
+    };
+});
+document.getElementById('pauseBtn').onclick=()=>{playSound('button');gs.paused=true;document.getElementById('pauseBtn').style.display="none";document.getElementById('pauseOverlay').style.display="flex";};
+document.getElementById('pauseResumeBtn').onclick=()=>{
+    playSound('button');document.getElementById('pauseOverlay').style.display="none";
+    ctx.clearRect(0,0,canvas.width,canvas.height);drawBG();gs.pipes.forEach(p=>drawPipe(p));drawGround();drawBird();drawHUD();
+    runCountdown(()=>{document.getElementById('pauseBtn').style.display="block";gs.paused=false;});
+};
+document.getElementById('pauseHomeBtn').onclick=()=>{
+    playSound('button');gs.paused=false;gs.gameOver=true;if(gs.animId)cancelAnimationFrame(gs.animId);
+    document.getElementById('pauseOverlay').style.display="none";document.getElementById('pauseBtn').style.display="none";showScreen('titleScreen');
+};
+document.getElementById('restartBtn').onclick=()=>{document.getElementById('gameOverOverlay').style.display="none";startGame();};
+document.getElementById('homeBtn').onclick=()=>{
+    playSound('button');gs.gameOver=true;if(gs.animId)cancelAnimationFrame(gs.animId);
+    document.getElementById('gameOverOverlay').style.display="none";document.getElementById('pauseBtn').style.display="none";showScreen('titleScreen');
+};
+document.getElementById('passwordInput').addEventListener('keydown',e=>{if(e.key==='Enter')handleAuth();});
+document.getElementById('usernameInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('passwordInput').focus();});
+
+// ===== HARDWARE BACK =====
+let currentScreen='auth';
+function pushHistory(name){history.pushState({screen:name},'',window.location.pathname);}
+history.replaceState({screen:'auth'},'',window.location.pathname);pushHistory('auth');
+window.addEventListener('popstate',e=>{
+    if(document.getElementById('pfpEditPopup').style.display==='flex'){closePfpEdit();pushHistory(currentScreen);return;}
+    if(gs.gameStarted&&!gs.gameOver&&!gs.paused){gs.paused=true;document.getElementById('pauseBtn').style.display="none";document.getElementById('pauseOverlay').style.display="flex";pushHistory('game_paused');return;}
+    if(document.getElementById('pauseOverlay').style.display==="flex"){playSound('button');document.getElementById('pauseOverlay').style.display="none";ctx.clearRect(0,0,canvas.width,canvas.height);drawBG();gs.pipes.forEach(p=>drawPipe(p));drawGround();drawBird();drawHUD();runCountdown(()=>{document.getElementById('pauseBtn').style.display="block";gs.paused=false;});pushHistory('game');return;}
+    if(document.getElementById('gameOverOverlay').style.display==="flex"){gs.gameOver=true;if(gs.animId)cancelAnimationFrame(gs.animId);document.getElementById('gameOverOverlay').style.display="none";document.getElementById('pauseBtn').style.display="none";hideAllScreens();document.getElementById('titleScreen').style.display="flex";currentScreen='titleScreen';pushHistory('titleScreen');return;}
+    if(currentScreen==='chatScreen'){if(chatUnsubscribe){chatUnsubscribe();chatUnsubscribe=null;}hideAllScreens();const el=document.getElementById(dmBackScreen||'dmListScreen');if(el)el.style.display='flex';currentScreen=dmBackScreen||'dmListScreen';pushHistory(currentScreen);loadDmBadge();return;}
+    if(currentScreen==='followListScreen'){hideAllScreens();const el=document.getElementById(followListBackScreen||'profileScreen');if(el)el.style.display='flex';currentScreen=followListBackScreen||'profileScreen';pushHistory(currentScreen);return;}
+    if(currentScreen==='profileScreen'){hideAllScreens();const el=document.getElementById(profileBackScreen||'titleScreen');if(el)el.style.display=(profileBackScreen==='settingsScreen')?'block':'flex';currentScreen=profileBackScreen||'titleScreen';pushHistory(currentScreen);return;}
+    if(['settingsScreen','storeScreen','leaderboardScreen','friendsScreen','dmListScreen'].includes(currentScreen)){playSound('button');hideAllScreens();document.getElementById('titleScreen').style.display="flex";currentScreen='titleScreen';pushHistory('titleScreen');return;}
+    pushHistory(currentScreen||'auth');
+});
+</script>
+</body>
+</html>
